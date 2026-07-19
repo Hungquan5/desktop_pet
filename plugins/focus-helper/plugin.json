@@ -1,0 +1,25 @@
+{
+  "apiVersion": "pet.dev/v1",
+  "kind": "ToolPlugin",
+  "metadata": {
+    "name": "focus-helper",
+    "version": "1.0.0",
+    "displayName": "Focus Helper",
+    "author": "vla-pet core team",
+    "license": "MIT",
+    "builtin": true
+  },
+  "spec": {
+    "runtime": "builtin",
+    "entrypoint": [],
+    "hooks": ["timer.started", "timer.completed", "focus.completed"],
+    "permissions": [
+      {"capability": "timer_manage", "scope": {}, "default": "allow"}
+    ],
+    "quotas": {"maxInvocationsPerMinute": 30, "timeoutMs": 1000, "maxMemoryMb": 32},
+    "storage": {"maxBytes": 65536}
+  },
+  "integrity": {
+    "README.md": "sha256:9bc34b5c24627812026525da4ebbd3144d08d70040927e591cfaf6eb3d3567ed"
+  }
+}

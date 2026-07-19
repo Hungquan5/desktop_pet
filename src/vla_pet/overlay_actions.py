@@ -5,7 +5,6 @@ import math
 from vla_pet.contracts import ActionKind, PetAction
 from vla_pet.world import PetWorld
 
-
 NATIVE_SPRITE_FACING = {
     ActionKind.WALK: -1,
     ActionKind.THROW: 1,
@@ -90,7 +89,7 @@ class OverlayActionScheduler:
             return PetAction(
                 ActionKind.IDLE,
                 direction=direction,
-                duration=0.8,
+                duration=proposed.duration,
                 source=proposed.source,
                 note=proposed.note,
             )

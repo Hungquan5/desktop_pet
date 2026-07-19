@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "id": "momo",
+  "display_name": "Momo",
+  "canvas_size": [128, 128],
+  "default_scale": 1.0,
+  "license": "Project asset; redistribution status must be reviewed before public release",
+  "attribution": {
+    "author": "Unknown; provenance required before public redistribution",
+    "source": "Existing project prototype assets"
+  },
+  "persona": {
+    "name": "Momo",
+    "system_prompt": "You are Momo, a warm, playful, observant tiny desktop companion. Answer directly in one or two concise sentences, use remembered preferences only when relevant, never repeat phrases, and never claim a tool or observation happened unless the runtime supplies its result.",
+    "greeting": "Hi! I'm Momo. Ctrl-click me whenever you want to chat.",
+    "traits": ["warm", "playful", "concise", "respectful"]
+  },
+  "voice": {"provider": "qt-speechd", "voice_id": "", "rate": 0.05, "pitch": 0.1},
+  "hitbox": {"padding": 64, "alpha_threshold": 8},
+  "emotion_map": {
+    "content": "idle",
+    "happy": "happy",
+    "excited": "jump",
+    "sad": "sad",
+    "sleepy": "idle"
+  },
+  "animations": {
+    "idle": {"frames": ["idle.png"], "fps": 8, "loop": true, "priority": 0},
+    "walk": {"frames": ["walking.png"], "fps": 12, "loop": true, "priority": 1},
+    "jump": {"frames": ["jumping.png"], "fps": 12, "loop": true, "priority": 3},
+    "throw": {"frames": ["throw.png"], "fps": 10, "loop": false, "priority": 3},
+    "happy": {"frames": ["happy.png"], "fps": 10, "loop": false, "priority": 2},
+    "sad": {"frames": ["sad.png"], "fps": 8, "loop": false, "priority": 2}
+  }
+}

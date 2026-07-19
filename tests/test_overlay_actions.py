@@ -68,3 +68,12 @@ def test_discrete_vlm_special_action_is_respected_with_cooldown() -> None:
 
     assert scheduler.choose(vlm_jump, world, 100).kind is ActionKind.JUMP
     assert scheduler.choose(vlm_jump, world, 102).kind is ActionKind.WALK
+
+
+def test_idle_routine_keeps_its_requested_pause_duration() -> None:
+    scheduler = OverlayActionScheduler()
+    world = PetWorld(width=1000, height=700, floor_y=692, bounce_edges=True)
+    pause = PetAction(ActionKind.IDLE, duration=2.4, source="life")
+    chosen = scheduler.choose(pause, world, 100)
+    assert chosen.kind is ActionKind.IDLE
+    assert chosen.duration == 2.4

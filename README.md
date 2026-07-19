@@ -1,18 +1,20 @@
-# SmolVLM2 + SmolLM2 Desktop Pet
+# Momo: local SmolVLM + SmolLM desktop companion
 
-A transparent, always-on-top desktop pet that walks across the real screen,
-receives discrete actions and visual evidence from SmolVLM2-256M, while
-SmolLM2-360M handles conversation and expressive narration. Both models run
-inside one worker process and share one sequential request queue.
+Momo is a transparent, always-on-top desktop pet for CPU-first computers. It
+walks on the real desktop, can be picked up and dropped, chats through SmolLM,
+and uses SmolVLM only for bounded pet actions and explicitly authorized screen
+questions. A deterministic life engine keeps the pet animated when every model
+is off, loading, or unavailable.
 
-The overlay only receives mouse input over the visible pet; clicks everywhere
-else pass through to the normal desktop. SmolVLM2 can only choose from the app's
-bounded walk, jump, throw, happy, sad, and idle actions. It never moves or clicks
-the real pointer.
+Version 1.0 adds private memory, push-to-talk voice, useful permission-gated
+tools, desktop context, positive-only progression, a mini-game, character and
+plugin manifests, onboarding, signed updates, backup/restore, and deployment
+rollback. SmolLM, SmolVLM, and optional Whisper run sequentially inside one AI
+worker; they are never duplicated into separate model processes.
 
-## Quick start
+## Start it
 
-Python 3.10 or newer is required. Start with the lightweight deterministic mode:
+Python 3.10–3.12 is supported. Deterministic pet-only mode needs no model files:
 
 ```bash
 python3 -m venv .venv
@@ -21,143 +23,164 @@ python -m pip install -e ".[dev]"
 vla-pet --mock-policy
 ```
 
-Install and run the real local models:
+For local SmolLM, SmolVLM, and Whisper:
 
 ```bash
 python -m pip install -e ".[models,dev]"
-vla-pet --device cpu --debug
+vla-pet --device cpu
 ```
 
-The first real run downloads `HuggingFaceTB/SmolVLM2-256M-Video-Instruct` and
-`HuggingFaceTB/SmolLM2-360M-Instruct`. Later runs use the local cache; pass
-`--offline` to prohibit downloads.
-
-On CPU, `--quantization auto` dynamically quantizes SmolVLM's linear layers to
-INT8. Image splitting is disabled for the synthetic 256px pet scene, reducing
-preprocessing from 17 vision tiles to one. The local six-thread INT8 action
-benchmark takes about 2 seconds. Use `--quantization none` to force the
-original FP32 model. A per-monitor lock prevents accidentally running two model
-copies on the same screen.
-
-SmolLM defaults to FP32 because dynamic INT8 caused severe generation-quality
-loss on this small language checkpoint. `--language-quantization int8` remains
-available when memory matters more than answer quality.
-
-The default command launches the transparent overlay on monitor `0`. Stop it
-with `Ctrl+C` in the terminal. To run the earlier room-style application instead:
+The first launch explains every optional feature before enabling it. Model
+checkpoints are downloaded only when local AI is selected; later runs can be
+forced to use cached files with `--offline`. Recovery mode starts immediately,
+spawns no AI process, reads no sensors, runs no tools or plugins, and writes no
+persistent state:
 
 ```bash
-vla-pet --sandbox-window --offline --debug
+vla-pet --safe-mode
 ```
 
-Mouse controls:
+## Interact with the pet
 
-- Left-click the pet to make it react.
-- Left-drag the pet in any direction to pick it up. Release it anywhere and it
-  falls gently back to the bottom of the monitor.
-- Ctrl+left-click opens a persistent SmolLM chat window. Conversation history
-  stays in memory while the app is running and message text is not written to
-  the session log. Direct commands such as “jump,” “walk left,” “be happy,” or
-  “stop” are confirmed by SmolLM and passed to SmolVLM for a visually grounded
-  action decision.
-- Right-click the pet, enter a question, and SmolVLM will capture that monitor
-  once and answer from the screenshot. Screen pixels are processed locally and
-  are not written to the session log.
+- Left-click pets the character.
+- Left-drag picks it up; release anywhere for a slow gravity-based fall.
+- Ctrl+left-click opens the always-on-top chat.
+- Right-click asks one question about one authorized screen capture.
+- Ctrl+right-click opens settings, privacy, memory, tasks, play, plugins, and
+  redacted activity.
+- The tray menu opens chat/settings, toggles privacy mode, or quits.
 
-To let the pet react to desktop notifications as they arrive, opt in explicitly:
+Chat is cancellable and replies appear incrementally. Direct requests such as
+“jump” or “walk left” flow from SmolLM intent to SmolVLM visual action choice,
+then through deterministic physics and cooldown safety. Ordinary conversation
+does not invoke vision.
 
-```bash
-vla-pet --offline --watch-notifications
-```
-
-Notification titles and bodies are read from the current user's session bus,
-passed locally to SmolVLM as context, and not included verbatim in logs. Support
-depends on the desktop notification service allowing session-bus monitoring.
-
-Useful command-line options:
+The conservative local tool parser recognizes commands such as:
 
 ```text
---mock-policy             deterministic actions and template narration
---policy vlm              direct SmolVLM2 discrete actions (default)
---language-model-id ID    SmolLM checkpoint for chat and narration
---language-quantization   none (default) or int8
---quantization auto       dynamic INT8 on CPU (default); use none for FP32
---policy vla              legacy SmolVLA experiment
---offline                 use cached model files only
---decision-timeout 180    restart a stuck background worker
---screen-index 0           select the monitor used by the overlay
---pet-size 128             set the pet height in pixels
---interaction-padding 64   enlarge or shrink the grab area around the pet
---sandbox-window           use the old room-style window
---headless                use an offscreen display for smoke tests
---max-seconds N           exit automatically after N seconds
---no-log                  disable logs/session-*.jsonl
---watch-notifications     read and explain new desktop notifications (opt-in)
+set a timer for 10 minutes
+start focus for 25 minutes
+add todo finish the release notes
+list todos
+note: remember the test result
+remind me to stretch in 30 minutes
+summarize clipboard
+read file /an/approved/note.md
+search files in /an/approved/folder for report
+open app calculator
 ```
 
-## Runtime design
+Timers, todos, reminders, and notes are local. Clipboard, file, and application
+tools show a one-shot scope confirmation. Tool work executes off the Qt thread,
+and audit rows contain identities, scope, timing, and result category—not tool
+arguments or private output.
 
-```text
-Qt overlay ── one request queue ── one worker process
-                                      ├─ SmolVLM: action choice + screen evidence
-                                      └─ SmolLM:  chat + narration + final wording
+## Voice, memory, and awareness
 
-screen question: one capture → SmolVLM evidence → SmolLM answer
-```
+Voice is push-to-talk and off by default. Linux capture uses an ephemeral
+0600-mode WAV that is deleted immediately. The default local provider lazily
+loads `openai/whisper-tiny` in the existing AI worker; Qt speech playback is
+interruptible and has a self-echo guard. Missing capture, STT, or TTS components
+degrade visibly to text chat.
 
-The Qt renderer is a frameless, per-pixel transparent, always-on-top overlay.
-Its Wayland mask includes the visible pet plus configurable interaction padding;
-the rest of the desktop remains clickable. During movement the renderer briefly
-unions the old and new regions, clears them synchronously, then shrinks back to
-the current hitbox. This avoids stale boxes and fast-motion trails without using
-a separately positioned Wayland surface. One spawned worker lazily loads one
-SmolVLM and one SmolLM checkpoint. It processes all requests sequentially, so
-the two models never compete for CPU and neither is duplicated in another
-process.
+Memory is also off by default. When enabled, explicit preferences, tasks, shared
+events, relationship facts, and procedures are deduplicated in SQLite and
+retrieved through local FTS5. Secrets are rejected, common identifiers are
+redacted, and screenshots/audio are never memories. Every memory can be viewed,
+deleted, exported, backed up, or removed with all application data.
 
-SmolVLM handles action labels and extracts evidence from authorized screenshots.
-SmolLM handles chat and action narration. A screen question deliberately uses
-both in sequence: SmolVLM extracts visible facts, then SmolLM writes the answer.
-For chat commands, SmolLM's reply must confirm the same direct action requested
-by the user; the intent is then attached to the next pet observation. SmolVLM
-chooses whether to execute it or remain idle, and the local scheduler applies
-grounding and cooldown rules. Ordinary conversation performs no extra visual
-inference.
+Active-application metadata, idle time, battery/network state, notifications,
+coding markers, and proactive reactions are individually opt-in. Deny lists,
+quiet hours, cooldowns, rate limits, visible reasons, and one-click privacy mode
+apply before context reaches companion logic. Awareness never takes an implicit
+screenshot.
 
-At each decision boundary the overlay supplies SmolVLM2 with a synthetic
-256×256 view of the pet plus its position and motion state. It only captures the
-real desktop after a right-click question or an opted-in notification event. The
-VLM replies to autonomous decisions with one label: `WALK_LEFT`, `WALK_RIGHT`,
-`JUMP`, `THROW`, `HAPPY`, `SAD`, or `IDLE`. A cooldown-aware scheduler validates
-the choice, and the pet automatically reverses at monitor edges.
+## Characters, play, plugins, and MCP
 
-Behavior conditions:
+The companion has positive-only XP, affection, inventory, daily rewards, focus
+milestones, achievements, snacks, toys, and the ten-round Catch the Star game.
+Time away never removes progress. `--sandbox-window` remains the bounded room
+mode.
 
-- Walk is the fallback for invalid or rate-limited model output.
-- Jump has a 12-second cooldown.
-- Throw is allowed only near the screen center and has a 20-second cooldown.
-- Happy can also trigger after an edge reversal.
-- Sad and idle are accepted directly from SmolVLM2.
-- Any two special actions are separated by at least six seconds.
+Character packs are source-free data directories selected with `--assets`.
+Schema v2 declares contained animation frames, hitbox, persona, voice, emotion
+mapping, license, and attribution. `characters/orbit` is the included original
+CC0 sample pack.
 
-Expressive actions send their structured event to SmolLM for one short
-speech-bubble sentence; the image is not reprocessed. Routine walking does not
-trigger another generation. Model failures visibly fall back to idle actions
-and fixed template narration.
+Two bundled plugins demonstrate focus and companion-care hooks. Plugin state is
+namespaced and quota-bound; code plugins require file hashes, a trusted Ed25519
+signature, declared capabilities, explicit enablement, and Linux bubblewrap
+isolation with no network by default. The optional MCP stdio bridge accepts only
+an absolute executable, requires a per-server grant, uses bounded JSON-RPC, and
+enforces a timeout. Arbitrary shell and desktop automation are not stable tools.
 
-## Verification
+Specifications:
+
+- [Architecture](docs/architecture.md)
+- [Privacy model](docs/privacy-model.md)
+- [Character pack v2](docs/character-pack-spec-v2.md)
+- [Plugin API v1](docs/plugin-spec-v1.md)
+- [Tool and permission API v1](docs/tool-permission-spec-v1.md)
+- [Signed update manifest v1](docs/update-spec-v1.md)
+- [v1.0 release evidence](docs/release-evidence-v1.0.md)
+
+## Private data and recovery
+
+Linux data follows XDG directories. Windows uses roaming/local AppData and macOS
+uses the appropriate `Library` directories. Useful recovery commands:
 
 ```bash
-pytest
-vla-pet --mock-policy --headless --max-seconds 3 --no-log
-python scripts/smoke_vlm.py
-python scripts/smoke_coop.py  # verifies both models share one worker PID
-python scripts/smoke_portal.py  # opens the desktop screenshot consent dialog
+vla-pet --diagnostics
+vla-pet --export-data ~/vla-pet-export.json
+vla-pet --backup-data ~/vla-pet-backup.db
+vla-pet --restore-data ~/vla-pet-backup.db
+vla-pet --clear-conversations
+vla-pet --reset-pet-state
+vla-pet --reset-onboarding
+vla-pet --delete-all-data
 ```
 
-The older robotics experiment remains available with:
+Automatic release checks are disabled until a user supplies a signed manifest
+URL, channel, key id, and Ed25519 public key in Settings. Checks run in the
+background and only announce a newer verified version. The CLI can verify and
+stage the signed artifact explicitly; installation remains visible and
+rollback-capable:
 
 ```bash
-python -m pip install -e ".[vla]"
-vla-pet --policy vla --offline
+vla-pet --check-update update.json \
+  --update-public-key release-key.pub \
+  --download-update verified.whl
 ```
+
+The operator creates manifests with `scripts/sign_update_manifest.py`. Private
+release keys, public-store certificates, notarization credentials, and update
+hosting are intentionally not stored in this repository.
+
+## Build, verify, and install
+
+```bash
+python scripts/verify_project.py
+python scripts/verify_project.py --with-models --with-voice-model
+python scripts/verify_project.py --with-performance
+python -m build --no-isolation
+python scripts/verify_release.py --artifact "dist/*-1.0.0-*.whl"
+python scripts/install_linux.py \
+  --wheel dist/smolvla_pet_sandbox-1.0.0-py3-none-any.whl --models
+python scripts/install_linux.py --rollback
+python scripts/install_linux.py --uninstall
+```
+
+The umbrella verifier runs lint, compile, coverage, build/wheel inspection,
+10,000-item memory performance, packaging contracts, safe-mode UI smoke,
+backup/restore, isolated install, upgrade, rollback, and uninstall. Optional
+flags add cached-model, voice-model, and five-minute CPU gates.
+
+Linux GNOME Wayland is the v1.0 live reference platform. Windows and macOS have
+CI/domain and packaging contracts, but no live hardware claim is made here.
+Model weights are not bundled. The older SmolVLA robotics experiment remains
+available through `.[vla]` and `--policy vla`; SmolVLM is the desktop default.
+
+The prototype PNG character currently has unresolved redistribution provenance;
+do not publish binaries containing it until [ATTRIBUTION.md](ATTRIBUTION.md) is
+completed. This does not affect local technical acceptance, and the original
+CC0 Orbit sample is available for redistributable builds.

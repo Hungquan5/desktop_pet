@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from vla_pet.contracts import ChatRequest, ChatResult, SandboxObservation
+from vla_pet.contracts import ChatRequest, ChatResult, NotificationRequest, SandboxObservation
 from vla_pet.worker import AIWorkerClient, WorkerConfig
 
 
@@ -52,5 +52,15 @@ def test_mock_worker_supports_chat() -> None:
         assert responses[0].kind == "chat"
         assert responses[0].ok
         assert isinstance(responses[0].payload, ChatResult)
+
+        client.submit("notify", NotificationRequest("App: Mail. Title: New message"))
+        responses = []
+        deadline = time.monotonic() + 5
+        while not responses and time.monotonic() < deadline:
+            responses = client.poll()
+            time.sleep(0.01)
+        assert responses[0].kind == "notify"
+        assert responses[0].ok
+        assert "notification" in responses[0].payload.lower()
     finally:
         client.stop()

@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smolvla-pet-sandbox"
-version = "0.1.0"
-description = "A cooperative SmolVLM and SmolLM anime desktop pet"
+version = "1.0.0"
+description = "A local-first living desktop companion with SmolVLM and SmolLM"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  "cryptography>=42,<46",
   "numpy>=1.24,<3",
   "pygame-ce==2.5.7",
   "PySide6>=6.7,<7",
@@ -16,15 +17,20 @@ dependencies = [
 
 [project.optional-dependencies]
 models = [
-  "torch>=2.2.1,<2.11",
+  "torch>=2.2.1,<2.14",
+  "torchvision>=0.17,<0.29",
   "transformers>=4.57,<5",
+  "num2words>=0.5.14,<1",
   "Pillow>=10,<13",
 ]
 vla = [
   "lerobot[smolvla]==0.4.4",
 ]
 dev = [
+  "build>=1.2,<2",
   "pytest>=8.0,<9",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
 ]
 
 [project.scripts]
@@ -33,6 +39,68 @@ vla-pet = "vla_pet.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.data-files]
+"share/vla-pet/animations" = [
+  "animations/character.json",
+  "animations/happy.png",
+  "animations/idle.png",
+  "animations/jumping.png",
+  "animations/sad.png",
+  "animations/throw.png",
+  "animations/walking.png",
+]
+"share/applications" = ["packaging/vla-pet.desktop"]
+"share/icons/hicolor/128x128/apps" = ["animations/happy.png"]
+"share/vla-pet/plugins/focus-helper" = [
+  "plugins/focus-helper/plugin.json",
+  "plugins/focus-helper/README.md",
+]
+"share/vla-pet/plugins/companion-care" = [
+  "plugins/companion-care/plugin.json",
+  "plugins/companion-care/README.md",
+]
+"share/vla-pet/characters/orbit" = [
+  "characters/orbit/character.json",
+  "characters/orbit/orbit.svg",
+]
+"share/doc/vla-pet" = [
+  "ATTRIBUTION.md",
+  "CHANGELOG.md",
+  "docs/architecture.md",
+  "docs/privacy-model.md",
+  "docs/character-pack-spec-v2.md",
+  "docs/plugin-spec-v1.md",
+  "docs/tool-permission-spec-v1.md",
+  "docs/update-spec-v1.md",
+  "docs/release-evidence-v1.0.md",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+[tool.coverage.run]
+source = ["vla_pet"]
+omit = [
+  "src/vla_pet/__main__.py",
+  "src/vla_pet/app.py",
+  "src/vla_pet/chat_dialog.py",
+  "src/vla_pet/cli.py",
+  "src/vla_pet/overlay.py",
+  "src/vla_pet/policy.py",
+  "src/vla_pet/providers.py",
+  "src/vla_pet/rendering.py",
+  "src/vla_pet/screen_capture.py",
+  "src/vla_pet/worker.py",
+]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true

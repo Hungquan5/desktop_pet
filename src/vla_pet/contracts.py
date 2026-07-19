@@ -127,9 +127,37 @@ class VisualQuestion:
 
 
 @dataclass(frozen=True, slots=True)
+class NotificationRequest:
+    """Opted-in notification text used ephemerally by the language layer."""
+
+    context: str
+
+    def validate(self) -> None:
+        if not self.context.strip() or len(self.context) > 1000:
+            raise ValueError("Invalid notification context")
+
+
+@dataclass(frozen=True, slots=True)
+class AudioTranscription:
+    """Ephemeral mono PCM/WAV request; bytes are never persisted or logged."""
+
+    wave_bytes: bytes
+    language: str = ""
+
+    def validate(self) -> None:
+        if not self.wave_bytes.startswith(b"RIFF") or b"WAVE" not in self.wave_bytes[:16]:
+            raise ValueError("Audio transcription expects WAV bytes")
+        if not 44 <= len(self.wave_bytes) <= 5 * 1024 * 1024:
+            raise ValueError("Audio transcription exceeds the supported size")
+        if len(self.language) > 16:
+            raise ValueError("Audio language hint is invalid")
+
+
+@dataclass(frozen=True, slots=True)
 class ChatRequest:
     message: str
     history: tuple[tuple[str, str], ...] = ()
+    memory_context: str = ""
 
     def validate(self) -> None:
         if not self.message.strip():
@@ -138,6 +166,8 @@ class ChatRequest:
             raise ValueError("Chat message is too long")
         if len(self.history) > 12:
             raise ValueError("Chat history is too long")
+        if len(self.memory_context) > 1500:
+            raise ValueError("Chat memory context is too long")
         for role, text in self.history:
             if role not in {"user", "pet"} or not text or len(text) > 500:
                 raise ValueError("Invalid chat history entry")

@@ -1,0 +1,23 @@
+{
+  "apiVersion": "pet.dev/v1",
+  "kind": "ToolPlugin",
+  "metadata": {
+    "name": "companion-care",
+    "version": "1.0.0",
+    "displayName": "Companion Care",
+    "author": "vla-pet core team",
+    "license": "MIT",
+    "builtin": true
+  },
+  "spec": {
+    "runtime": "builtin",
+    "entrypoint": [],
+    "hooks": ["pet.interacted", "item.used", "daily.completed"],
+    "permissions": [],
+    "quotas": {"maxInvocationsPerMinute": 60, "timeoutMs": 1000, "maxMemoryMb": 32},
+    "storage": {"maxBytes": 65536}
+  },
+  "integrity": {
+    "README.md": "sha256:db68860765a89c94d9e788b24118cf4c599962e59b8b2594ce178dbb75e89dd1"
+  }
+}

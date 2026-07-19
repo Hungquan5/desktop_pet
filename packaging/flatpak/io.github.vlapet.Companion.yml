@@ -1,0 +1,21 @@
+app-id: io.github.vlapet.Companion
+runtime: org.kde.Platform
+runtime-version: "6.8"
+sdk: org.kde.Sdk
+command: vla-pet
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --talk-name=org.freedesktop.Notifications
+  - --device=dri
+modules:
+  - name: vla-pet
+    buildsystem: simple
+    build-commands:
+      - python3 -m pip install --prefix=/app --no-deps smolvla_pet_sandbox-1.0.0-py3-none-any.whl
+    sources:
+      - type: file
+        path: ../../dist/smolvla_pet_sandbox-1.0.0-py3-none-any.whl

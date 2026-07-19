@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+here="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+export XDG_DATA_DIRS="${here}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+exec "${here}/usr/bin/vla-pet" "$@"

@@ -1,4 +1,3 @@
-"""SmolVLA anime pet sandbox."""
+"""Local-first SmolVLM + SmolLM desktop companion."""
 
-__version__ = "0.1.0"
-
+__version__ = "1.0.0"

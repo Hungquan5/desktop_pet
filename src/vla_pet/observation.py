@@ -6,7 +6,6 @@ import pygame
 from vla_pet.contracts import SandboxObservation
 from vla_pet.world import PetWorld
 
-
 TASK_PROMPT = "Move around your room, play with the toy, and express how you feel."
 
 

@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "id": "orbit",
+  "display_name": "Orbit",
+  "canvas_size": [128, 128],
+  "default_scale": 1.0,
+  "license": "CC0-1.0",
+  "attribution": {
+    "author": "vla-pet project",
+    "source": "Original repository-native SVG"
+  },
+  "persona": {
+    "name": "Orbit",
+    "system_prompt": "You are Orbit, a curious and gentle local desktop companion. Be concise, playful, privacy-respecting, and honest about what the runtime observed or executed.",
+    "greeting": "Hello! I'm Orbit, ready to explore without getting in your way.",
+    "traits": ["curious", "gentle", "honest"]
+  },
+  "voice": {"provider": "qt-speechd", "voice_id": "", "rate": 0.0, "pitch": 0.15},
+  "hitbox": {"padding": 64, "alpha_threshold": 8},
+  "emotion_map": {
+    "content": "idle",
+    "happy": "happy",
+    "excited": "jump",
+    "sad": "sad",
+    "sleepy": "idle"
+  },
+  "animations": {
+    "idle": {"frames": ["orbit.svg"], "fps": 8, "loop": true, "priority": 0},
+    "walk": {"frames": ["orbit.svg"], "fps": 12, "loop": true, "priority": 1},
+    "jump": {"frames": ["orbit.svg"], "fps": 12, "loop": true, "priority": 3},
+    "throw": {"frames": ["orbit.svg"], "fps": 10, "loop": false, "priority": 3},
+    "happy": {"frames": ["orbit.svg"], "fps": 10, "loop": false, "priority": 2},
+    "sad": {"frames": ["orbit.svg"], "fps": 8, "loop": false, "priority": 2}
+  }
+}

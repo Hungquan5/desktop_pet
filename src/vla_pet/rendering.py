@@ -9,7 +9,6 @@ import pygame
 from vla_pet.contracts import ActionKind
 from vla_pet.world import PetWorld
 
-
 POSE_FILES = {
     ActionKind.IDLE: "idle.png",
     ActionKind.WALK: "walking.png",

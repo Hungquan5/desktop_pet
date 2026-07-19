@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Momo Desktop Pet
+Comment=Local-first SmolVLM and SmolLM desktop companion
+Exec=vla-pet
+Icon=happy
+Terminal=false
+Categories=Utility;Amusement;
+StartupNotify=false
+X-GNOME-Autostart-enabled=false

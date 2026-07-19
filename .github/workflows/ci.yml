@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.10"
+          - os: ubuntu-24.04
+            python-version: "3.12"
+          - os: windows-2025
+            python-version: "3.12"
+          - os: macos-14
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install mock/runtime development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: python -m ruff check src tests scripts
+      - name: Compile
+        run: python -m compileall -q src scripts
+      - name: Test with coverage
+        run: python -m pytest --cov=vla_pet --cov-report=term-missing
+      - name: Memory performance contract
+        run: python scripts/measure_memory.py
+      - name: Headless safe-mode smoke
+        if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: vla-pet --safe-mode --headless --screen-index 99 --max-seconds 3 --no-log
+
+  package-linux:
+    runs-on: ubuntu-24.04
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Build wheel
+        run: python -m build
+      - name: Verify wheel
+        run: python scripts/verify_release.py --artifact "dist/*.whl"
+      - name: Validate release packaging contracts
+        run: python scripts/verify_packaging.py
