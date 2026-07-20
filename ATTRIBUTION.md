@@ -1,13 +1,14 @@
 # Attribution and asset review
 
-The application source is developed in this repository. The six PNG files in
-`animations/` predate the v0.2 packaging work and currently have no independently
-verified redistribution license. They are marked accordingly in
-`animations/character.json`.
+The v1.1 release character is the original Momo v2 pixel-chibi atlas under
+`animations/momo_v2/`. Its source prompt, generation mode, deterministic
+post-processing, frame list, and license are recorded in
+`animations/momo_v2/PROVENANCE.md`. The release wheel includes this pack under
+CC BY 4.0 and does not include the six unresolved prototype PNG files retained
+at the root of `animations/` for source-history review.
 
-Do not publish a binary release containing those images until their author,
-source, and redistribution terms are recorded here. Every future character pack
-must declare its own license and attribution in `character.json`.
+`assets/sounds/momo_pop.wav` is an original synthesized soft interaction tone
+created for this repository and dedicated to the public domain under CC0-1.0.
 
 `characters/orbit/orbit.svg` is an original geometric sample created for this
 repository in 2026 and dedicated to the public domain under CC0-1.0, as declared

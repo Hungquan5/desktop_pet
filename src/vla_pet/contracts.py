@@ -28,6 +28,20 @@ class ActionIntent(str, Enum):
     IDLE = "IDLE"
 
 
+class HabitatIntent(str, Enum):
+    """Candidate-constrained actions inside the pet-owned desktop habitat."""
+
+    NONE = "none"
+    RETURN_HOME = "return_home"
+    REST = "rest"
+    EAT_SNACK = "eat_snack"
+    CHASE_BALL = "chase_ball"
+    FETCH_BALL = "fetch_ball"
+    ENTER_BOX = "enter_box"
+    EXIT_BOX = "exit_box"
+    CANCEL = "cancel"
+
+
 @dataclass(frozen=True, slots=True)
 class PetAction:
     kind: ActionKind
@@ -179,12 +193,15 @@ class ChatResult:
 
     reply: str
     requested_action: ActionIntent | None = None
+    habitat_intent: HabitatIntent | None = None
 
     def validate(self) -> None:
         if not self.reply.strip() or len(self.reply) > 500:
             raise ValueError("Invalid chat reply")
         if self.requested_action is not None and not isinstance(self.requested_action, ActionIntent):
             raise ValueError("Invalid chat action intent")
+        if self.habitat_intent is not None and not isinstance(self.habitat_intent, HabitatIntent):
+            raise ValueError("Invalid habitat intent")
 
 
 @dataclass(frozen=True, slots=True)

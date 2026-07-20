@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from vla_pet.theme import apply_companion_theme
+
 
 class PetChatDialog(QDialog):
     message_submitted = Signal(str)
@@ -64,6 +66,7 @@ class PetChatDialog(QDialog):
         self._stream_timer.timeout.connect(self._stream_step)
         self._stream_parts: list[str] = []
         self._stream_index = 0
+        apply_companion_theme(self)
 
     @property
     def history(self) -> tuple[tuple[str, str], ...]:

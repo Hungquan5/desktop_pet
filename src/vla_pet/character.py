@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +11,7 @@ from vla_pet.errors import ErrorCategory, PetError
 
 
 def default_character_directory() -> Path:
-    source_assets = Path(__file__).resolve().parents[2] / "animations"
+    source_assets = Path(__file__).resolve().parents[2] / "animations" / "momo_v2"
     installed_assets = Path(sys.prefix) / "share" / "vla-pet" / "animations"
     return source_assets if source_assets.exists() else installed_assets
 
@@ -57,6 +57,32 @@ class CharacterPack:
     alpha_threshold: int = 8
     emotion_map: tuple[tuple[str, str], ...] = ()
     attribution: tuple[tuple[str, str], ...] = ()
+    pack_version: str = "1.0.0"
+    expressive_animations: dict[str, AnimationSpec] = field(default_factory=dict)
+    ui_accent: str = "#B9362E"
+    sound_attribution: tuple[tuple[str, str], ...] = ()
+
+    _ROLE_FALLBACKS = {
+        "fall": ActionKind.JUMP,
+        "held": ActionKind.JUMP,
+        "landing": ActionKind.IDLE,
+        "eat": ActionKind.HAPPY,
+        "play": ActionKind.THROW,
+        "sleep": ActionKind.IDLE,
+        "box": ActionKind.IDLE,
+        "think": ActionKind.IDLE,
+        "listen": ActionKind.IDLE,
+        "talk": ActionKind.HAPPY,
+    }
+
+    def animation_for(self, role: str | ActionKind) -> AnimationSpec:
+        name = role.value if isinstance(role, ActionKind) else str(role).strip().lower()
+        if name in self.expressive_animations:
+            return self.expressive_animations[name]
+        try:
+            return self.animations[ActionKind(name)]
+        except ValueError:
+            return self.animations[self._ROLE_FALLBACKS.get(name, ActionKind.IDLE)]
 
     @classmethod
     def load(cls, directory: Path) -> CharacterPack:
@@ -72,7 +98,7 @@ class CharacterPack:
             ) from exc
 
         schema_version = int(raw.get("schema_version", 0))
-        if schema_version not in {1, 2}:
+        if schema_version not in {1, 2, 3}:
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
                 "character.schema.unsupported",
@@ -123,15 +149,52 @@ class CharacterPack:
                 bool(value.get("loop", True)),
                 int(value.get("priority", 0)),
             )
+        expressive_specs: dict[str, AnimationSpec] = {}
+        if schema_version >= 3:
+            for role, value in animations.items():
+                name = str(role).strip().lower()
+                if name in {kind.value for kind in ActionKind}:
+                    continue
+                if not name or not isinstance(value, dict):
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.animation.invalid",
+                        f"Invalid expressive animation: {role}",
+                    )
+                frames = cls._resolve_frames(root, value.get("frames"), name)
+                fps = float(value.get("fps", 8.0))
+                if not 0.1 <= fps <= 120.0:
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.animation.fps",
+                        f"Invalid FPS for {name}: {fps}",
+                    )
+                expressive_specs[name] = AnimationSpec(
+                    name,
+                    frames,
+                    fps,
+                    bool(value.get("loop", True)),
+                    int(value.get("priority", 0)),
+                )
 
         persona_raw = raw.get("persona", {})
         voice_raw = raw.get("voice", {})
         hitbox_raw = raw.get("hitbox", {})
         attribution_raw = raw.get("attribution", {})
         emotion_raw = raw.get("emotion_map", {})
+        ui_raw = raw.get("ui", {})
+        sound_raw = raw.get("sound_attribution", {})
         if not all(
             isinstance(value, dict)
-            for value in (persona_raw, voice_raw, hitbox_raw, attribution_raw, emotion_raw)
+            for value in (
+                persona_raw,
+                voice_raw,
+                hitbox_raw,
+                attribution_raw,
+                emotion_raw,
+                ui_raw,
+                sound_raw,
+            )
         ):
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
@@ -181,10 +244,17 @@ class CharacterPack:
             attribution=tuple(
                 sorted((str(key), str(value)) for key, value in attribution_raw.items())
             ),
+            pack_version=str(raw.get("version", "1.0.0")).strip()[:40] or "1.0.0",
+            expressive_animations=expressive_specs,
+            ui_accent=str(ui_raw.get("accent", "#B9362E"))[:20],
+            sound_attribution=tuple(
+                sorted((str(key), str(value)) for key, value in sound_raw.items())
+            ),
         )
 
     @staticmethod
-    def _resolve_frames(root: Path, value: Any, kind: ActionKind) -> tuple[Path, ...]:
+    def _resolve_frames(root: Path, value: Any, kind: ActionKind | str) -> tuple[Path, ...]:
+        name = kind.value if isinstance(kind, ActionKind) else str(kind)
         patterns = [value] if isinstance(value, str) else value
         if not isinstance(patterns, list) or not patterns or not all(
             isinstance(pattern, str) and pattern for pattern in patterns
@@ -192,7 +262,7 @@ class CharacterPack:
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
                 "character.frames.invalid",
-                f"Animation {kind.value} must declare one or more frames",
+                f"Animation {name} must declare one or more frames",
             )
         frames: list[Path] = []
         for pattern in patterns:
@@ -200,7 +270,7 @@ class CharacterPack:
                 raise PetError(
                     ErrorCategory.CHARACTER_PACK,
                     "character.frames.unsafe_path",
-                    f"Unsafe frame path in {kind.value}",
+                    f"Unsafe frame path in {name}",
                 )
             matches = sorted(root.glob(pattern))
             for match in matches:
@@ -211,7 +281,7 @@ class CharacterPack:
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
                 "character.frames.missing",
-                f"No frames found for {kind.value}",
+                f"No frames found for {name}",
             )
         return tuple(frames)
 

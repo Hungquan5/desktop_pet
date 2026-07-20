@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 - 2026-07-19
+
+- Added a cozy edge-anchored desktop habitat with collapse, bottom-edge movement,
+  click-through-aware masking, and deterministic cushion/snack/ball/box physics.
+- Added a unified Home, Chat, Play, and Settings panel, quick pet actions,
+  coachmark, reduced motion, muted-by-default original sound, and shared theme.
+- Added original provenance-documented Momo v2 pixel-chibi animation assets with
+  expressive held/eat/play/sleep/box/think/listen/talk roles.
+- Added schema-3 atomic pet+habitat persistence, schema-2 companion settings,
+  v1/v2/v3 character compatibility, idempotent rewards, and safe restoration.
+- Added direct SmolLM habitat intents and candidate-constrained SmolVLM choices
+  based only on a synthetic internal habitat scene, without desktop capture.
+
 ## 1.0.0 - 2026-07-19
 
 - Added inspectable episodic/profile/task/relationship/procedural memory with FTS,

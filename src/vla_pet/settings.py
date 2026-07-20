@@ -10,7 +10,7 @@ SETTINGS_KEY = "companion.v1"
 
 @dataclass(slots=True)
 class CompanionSettings:
-    schema_version: int = 1
+    schema_version: int = 2
     onboarding_completed: bool = False
     ai_enabled: bool = True
     memory_enabled: bool = False
@@ -35,6 +35,14 @@ class CompanionSettings:
     denied_title_fragments: list[str] = field(default_factory=list)
     persona_name: str = ""
     persona_prompt: str = ""
+    habitat_enabled: bool = True
+    habitat_collapsed: bool = False
+    habitat_position: float = 0.98
+    reduced_motion: bool = False
+    sound_enabled: bool = False
+    sound_volume: float = 0.35
+    last_panel_page: str = "home"
+    habitat_coachmark_seen: bool = False
 
     def __post_init__(self) -> None:
         self.denied_applications = list(self.denied_applications or [])
@@ -49,16 +57,24 @@ class CompanionSettings:
         self.quiet_hour_end = int(self.quiet_hour_end) % 24
         self.persona_name = self.persona_name.strip()[:80]
         self.persona_prompt = self.persona_prompt.strip()[:1200]
+        self.schema_version = 2
+        self.habitat_position = min(1.0, max(0.0, float(self.habitat_position)))
+        self.sound_volume = min(1.0, max(0.0, float(self.sound_volume)))
+        self.last_panel_page = (
+            self.last_panel_page if self.last_panel_page in {"home", "chat", "play", "settings"} else "home"
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, value: Any) -> CompanionSettings:
-        if not isinstance(value, dict) or int(value.get("schema_version", 0)) != 1:
+        if not isinstance(value, dict) or int(value.get("schema_version", 0)) not in {1, 2}:
             return cls()
         names = {item.name for item in fields(cls)}
-        return cls(**{key: item for key, item in value.items() if key in names})
+        migrated = {key: item for key, item in value.items() if key in names}
+        migrated["schema_version"] = 2
+        return cls(**migrated)
 
     @classmethod
     def load(cls, repository: StateRepository | None) -> CompanionSettings:

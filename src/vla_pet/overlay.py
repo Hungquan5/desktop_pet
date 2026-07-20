@@ -53,12 +53,14 @@ from vla_pet.awareness import (
 from vla_pet.builtin_tools import CoreToolServices, ToolIntentParser, register_core_tools
 from vla_pet.character import CharacterPack, load_character_or_default
 from vla_pet.chat_dialog import PetChatDialog
+from vla_pet.companion_panel import CompanionPanel
 from vla_pet.contracts import (
     ActionIntent,
     ActionKind,
     AudioTranscription,
     ChatRequest,
     ChatResult,
+    HabitatIntent,
     LanguageNarration,
     NotificationRequest,
     PetAction,
@@ -67,6 +69,12 @@ from vla_pet.contracts import (
 )
 from vla_pet.control_center import CompanionControlCenter
 from vla_pet.events import PlatformEvent, UserInteractionEvent
+from vla_pet.habitat import (
+    HabitatController,
+    HabitatObjectKind,
+    HabitatObjectStatus,
+    HabitatObservation,
+)
 from vla_pet.life import LifeContext, LifeDecision, LifeIntent
 from vla_pet.onboarding import OnboardingWizard
 from vla_pet.overlay_actions import OverlayActionScheduler, sprite_needs_flip
@@ -114,7 +122,7 @@ def decision_request_ready(
         or not on_ground
         or dragging
         or now < next_decision_at
-        or "decide" in pending_kinds
+        or any(kind in pending_kinds for kind in ("decide", "habitat"))
     )
 
 
@@ -134,6 +142,7 @@ class OverlayConfig:
     semantic_interval_s: float = 15.0
     skip_onboarding: bool = False
     stt_command: tuple[str, ...] = ()
+    habitat_mode: str = ""
 
 
 class DesktopPetOverlay(QWidget):
@@ -153,6 +162,7 @@ class DesktopPetOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setMouseTracking(True)
 
         screens = QGuiApplication.screens()
         screen_index = max(0, min(config.screen_index, len(screens) - 1))
@@ -186,6 +196,20 @@ class DesktopPetOverlay(QWidget):
             self.settings.notifications_enabled = True
         if config.safe_mode:
             self.settings = CompanionSettings(onboarding_completed=True)
+        self.habitat = self.runtime.habitat
+        self.habitat_controller: HabitatController = self.runtime.habitat_controller
+        self.habitat.enabled = self.settings.habitat_enabled
+        self.habitat.collapsed = self.settings.habitat_collapsed
+        self.habitat.anchor_x = self.settings.habitat_position
+        if config.habitat_mode == "off":
+            self.habitat.enabled = False
+        elif config.habitat_mode == "collapsed":
+            self.habitat.enabled = True
+            self.habitat.collapsed = True
+        elif config.habitat_mode == "expanded":
+            self.habitat.enabled = True
+            self.habitat.collapsed = False
+        self.habitat.normalize()
         self.runtime.memory_enabled = self.settings.memory_enabled
         self.runtime.state.privacy_mode = self.settings.privacy_mode
         self.world.move_horizontal(
@@ -256,12 +280,32 @@ class DesktopPetOverlay(QWidget):
         self._pending_user_action: ActionIntent | None = None
         self._dragging = False
         self._drag_moved = False
+        self._pet_pressed_at = 0.0
+        self._hover_pet_started_at = 0.0
+        self._last_pointer_position: tuple[float, float] | None = None
+        self._quick_menu_visible = False
+        self._quick_menu_until = 0.0
+        self._drag_object_id = ""
+        self._habitat_dragging = False
+        self._habitat_press_x = 0.0
+        self._habitat_anchor_at_press = self.habitat.anchor_x
+        self._object_last_pointer: tuple[float, float, float] | None = None
+        self._object_velocity = (0.0, 0.0)
+        self._habitat_pending_intent = HabitatIntent.NONE
+        self._habitat_object_id = ""
+        self._habitat_role = ""
+        self._habitat_interaction_until = 0.0
+        self._habitat_interaction_token = 0
+        self._landing_until = 0.0
+        self._sound_effect: object | None = None
         self._press_global_x = 0.0
         self._press_global_y = 0.0
         self._press_world_x = 0.0
         self._press_world_y = 0.0
         self._last_visual_rect = QRect()
+        self._last_habitat_rect = QRect()
         self._last_render_signature: tuple[object, ...] | None = None
+        self._last_habitat_signature: tuple[object, ...] | None = None
         self._pending_mask = QRegion()
         self._shrink_mask_after_paint = False
         self._last_mask_context: tuple[bool, bool] | None = None
@@ -339,10 +383,19 @@ class DesktopPetOverlay(QWidget):
             self.runtime.memory,
             self.plugin_host,
             self.runtime.state,
+            self.habitat,
         )
         self.control_center.settings_changed.connect(self._apply_settings)
         self.control_center.privacy_changed.connect(self._privacy_changed)
         self.control_center.activity_event.connect(self._dispatch_plugin_event)
+        self.companion_panel = CompanionPanel(
+            self.settings,
+            self.runtime.state,
+            self.chat_dialog,
+            self.control_center,
+        )
+        self.companion_panel.settings_changed.connect(self._apply_settings)
+        self.companion_panel.habitat_action_requested.connect(self._habitat_quick_action)
 
         self.update_checker = AsyncUpdateChecker(self.permissions, __version__)
         self.update_checker.finished.connect(self._on_update_checked)
@@ -452,17 +505,19 @@ class DesktopPetOverlay(QWidget):
             return
         tray = QSystemTrayIcon(QIcon(self.sprites[next(iter(self.sprites))]), self)
         menu = QMenu()
+        home = QAction("Momo's home", menu)
         chat = QAction("Chat", menu)
         settings = QAction("Settings and privacy", menu)
         self._tray_privacy = QAction("Privacy mode", menu)
         self._tray_privacy.setCheckable(True)
         self._tray_privacy.setChecked(self.settings.privacy_mode)
         quit_action = QAction("Quit", menu)
+        home.triggered.connect(lambda: self.companion_panel.show_page("home"))
         chat.triggered.connect(self._open_chat)
         settings.triggered.connect(self._open_control_center)
         self._tray_privacy.toggled.connect(self._privacy_changed)
         quit_action.triggered.connect(QApplication.quit)
-        for action in (chat, settings, self._tray_privacy, quit_action):
+        for action in (home, chat, settings, self._tray_privacy, quit_action):
             menu.addAction(action)
         tray.setContextMenu(menu)
         tray.setToolTip(f"{self.character.display_name} desktop companion")
@@ -511,12 +566,15 @@ class DesktopPetOverlay(QWidget):
             self.next_decision_at = time.monotonic()
 
     def _open_control_center(self) -> None:
-        self.control_center.show_and_refresh()
+        self.companion_panel.show_page("settings")
 
     def _apply_settings(self, settings: CompanionSettings) -> None:
         self.settings = settings
         self.runtime.memory_enabled = settings.memory_enabled
         self.runtime.state.privacy_mode = settings.privacy_mode
+        self.habitat.enabled = settings.habitat_enabled
+        self.habitat.anchor_x = settings.habitat_position
+        self.habitat_controller.set_collapsed(settings.habitat_collapsed)
         capabilities = {
             Capability.PERSIST_CONVERSATION: settings.persist_conversation,
             Capability.NOTIFICATION_MONITOR_SESSION: settings.notifications_enabled,
@@ -767,7 +825,7 @@ class DesktopPetOverlay(QWidget):
 
     def _load_sprites(self, pack: CharacterPack) -> dict[str, QPixmap]:
         sprites: dict[str, QPixmap] = {}
-        for spec in pack.animations.values():
+        for spec in (*pack.animations.values(), *pack.expressive_animations.values()):
             for path in spec.frames:
                 pixmap = QPixmap(str(path))
                 if pixmap.isNull():
@@ -779,6 +837,9 @@ class DesktopPetOverlay(QWidget):
         now = time.monotonic()
         dt = min(0.1, max(0.0, now - self.last_tick))
         self.last_tick = now
+        self._update_quick_menu(now)
+        habitat_moved = self.habitat_controller.update(dt)
+        self._update_habitat_interaction(dt, now)
         self._check_context_and_tasks(now)
         idle = self._current_context.user_idle_seconds
         life_decision = self.runtime.tick(
@@ -821,6 +882,7 @@ class DesktopPetOverlay(QWidget):
             # Resume locomotion on the landing frame. Model work may still be
             # finishing, so the local walk animation keeps the pet responsive.
             self.next_decision_at = now
+            self._landing_until = now + 0.55
             self.logger.write("mouse_interaction", action="land", x=round(self.world.x, 1))
         if self.world.facing != facing_before_update:
             self.edge_bounced_pending = True
@@ -833,6 +895,8 @@ class DesktopPetOverlay(QWidget):
             ):
                 self.ai.submit("narrate", LanguageNarration(event))
             self.next_decision_at = now + 0.1
+            if event.source == "habitat-approach":
+                self._start_habitat_interaction(now)
 
         self._handle_responses(now)
         self._request_decision(now)
@@ -846,10 +910,18 @@ class DesktopPetOverlay(QWidget):
             self.chat_dialog.set_waiting(False)
         if self.config.max_seconds is not None and now - self.started_at >= self.config.max_seconds:
             QApplication.quit()
-        fast_motion = self._dragging or self.world.user_falling or self.world.pose in {
+        ball = self.habitat_controller.object("ball")
+        fast_motion = (
+            self._dragging
+            or bool(self._drag_object_id)
+            or habitat_moved
+            or (ball is not None and ball.status is HabitatObjectStatus.AIRBORNE)
+            or self.world.user_falling
+            or self.world.pose in {
             ActionKind.JUMP,
             ActionKind.THROW,
-        }
+            }
+        )
         target_interval = 16 if fast_motion else 33
         if self.timer.interval() != target_interval:
             self.timer.setInterval(target_interval)
@@ -907,6 +979,29 @@ class DesktopPetOverlay(QWidget):
                     error=response.error,
                     action=action.as_dict(),
                     requested_action=requested_label,
+                )
+            elif response.kind == "habitat":
+                intent = response.payload
+                if not isinstance(intent, HabitatIntent):
+                    try:
+                        intent = HabitatIntent(str(intent))
+                    except ValueError:
+                        intent = HabitatIntent.RETURN_HOME
+                if int(response.metadata.get("sequence_id", -1)) != self.world.sequence_id:
+                    self.logger.write("habitat_decision_stale", intent=intent.value)
+                    continue
+                self._perform_habitat_intent(intent, source="smolvlm")
+                self.status = (
+                    f"SmolVLM chose {intent.value.replace('_', ' ')} • {response.latency_s:.2f}s"
+                    if response.ok
+                    else "Habitat decision used the safe home fallback"
+                )
+                self.logger.write(
+                    "habitat_decision",
+                    ok=response.ok,
+                    provider=response.provider,
+                    intent=intent.value,
+                    latency_s=round(response.latency_s, 4),
                 )
             elif response.kind == "narrate":
                 self.bubble = str(response.payload)
@@ -969,6 +1064,8 @@ class DesktopPetOverlay(QWidget):
                 if result.requested_action is not None:
                     self._pending_user_action = result.requested_action
                     self.next_decision_at = now
+                if result.habitat_intent is not None:
+                    self._perform_habitat_intent(result.habitat_intent, source="smollm")
                 self.status = (
                     (
                         f"SmolLM requested {result.requested_action.value}; waiting for SmolVLM…"
@@ -987,6 +1084,9 @@ class DesktopPetOverlay(QWidget):
                     response_chars=len(answer),
                     requested_action=(
                         result.requested_action.value if result.requested_action is not None else ""
+                    ),
+                    habitat_intent=(
+                        result.habitat_intent.value if result.habitat_intent is not None else ""
                     ),
                 )
             elif response.kind == "transcribe":
@@ -1009,6 +1109,8 @@ class DesktopPetOverlay(QWidget):
                 self._submit_chat(turn.transcript)
 
     def _request_decision(self, now: float) -> None:
+        if self._habitat_role or self._drag_object_id or self._habitat_dragging:
+            return
         if not decision_request_ready(
             world_busy=self.world.is_busy,
             on_ground=self.world.on_ground,
@@ -1022,6 +1124,22 @@ class DesktopPetOverlay(QWidget):
             self._apply_life_action(now)
             return
         requested_action = self._pending_user_action
+        if (
+            requested_action is None
+            and self.habitat.enabled
+            and not self.habitat.collapsed
+        ):
+            observation = self._build_habitat_observation()
+            self.ai.submit("habitat", observation)
+            self.next_cognition_at = now + max(5.0, self.config.semantic_interval_s)
+            self.status = "SmolVLM is choosing inside Momo's private nook…"
+            self.logger.write(
+                "habitat_observation",
+                sequence_id=observation.sequence_id,
+                candidates=[item.value for item in observation.environment.candidates],
+                image_source="synthetic_internal_scene",
+            )
+            return
         observation = self._build_observation(requested_action)
         self.ai.submit("decide", observation)
         self._pending_user_action = None
@@ -1038,6 +1156,244 @@ class DesktopPetOverlay(QWidget):
             state=observation.state,
             requested_action=requested_action.value if requested_action is not None else "",
         )
+
+    def _habitat_rect(self) -> QRect:
+        if not self.habitat.enabled:
+            return QRect()
+        width = 44 if self.habitat.collapsed else min(420, self.width())
+        height = 44 if self.habitat.collapsed else min(190, self.height())
+        travel = max(0, self.width() - width)
+        x = round(travel * self.habitat.anchor_x)
+        return QRect(x, self.height() - height, width, height)
+
+    def _habitat_toggle_rect(self) -> QRect:
+        habitat = self._habitat_rect()
+        return habitat if self.habitat.collapsed else QRect(habitat.x() + 8, habitat.y() + 8, 31, 31)
+
+    def _habitat_object_rect(self, object_id: str) -> QRect:
+        item = self.habitat_controller.object(object_id)
+        habitat = self._habitat_rect()
+        if item is None or habitat.isEmpty() or self.habitat.collapsed or not item.visible:
+            return QRect()
+        sizes = {
+            HabitatObjectKind.CUSHION: (88, 34),
+            HabitatObjectKind.SNACK: (28, 28),
+            HabitatObjectKind.BALL: (30, 30),
+            HabitatObjectKind.BOX: (72, 61),
+        }
+        width, height = sizes[item.kind]
+        center_x = habitat.x() + round(item.x * habitat.width())
+        center_y = habitat.y() + round(item.y * habitat.height())
+        return QRect(center_x - width // 2, center_y - height // 2, width, height)
+
+    def _habitat_object_at(self, x: float, y: float) -> str:
+        for item in reversed(self.habitat.objects):
+            if item.visible and self._habitat_object_rect(item.object_id).contains(round(x), round(y)):
+                return item.object_id
+        return ""
+
+    def _set_habitat_collapsed(self, collapsed: bool) -> None:
+        self.habitat_controller.set_collapsed(collapsed)
+        self.settings.habitat_collapsed = self.habitat.collapsed
+        self._habitat_role = ""
+        self._habitat_pending_intent = HabitatIntent.NONE
+        self._habitat_object_id = ""
+        self._drag_object_id = ""
+        self.settings.save(self.runtime.repository)
+        self.runtime.save()
+        self._update_interaction_mask()
+
+    def _habitat_quick_action(self, action: str) -> None:
+        mapping = {
+            "home": HabitatIntent.RETURN_HOME,
+            "snack": HabitatIntent.EAT_SNACK,
+            "ball": HabitatIntent.CHASE_BALL,
+            "sleep": HabitatIntent.REST,
+            "box": HabitatIntent.ENTER_BOX,
+        }
+        if action == "more":
+            self.companion_panel.show_page("play")
+            return
+        self._perform_habitat_intent(mapping.get(action, HabitatIntent.RETURN_HOME), source="ui")
+
+    def _perform_habitat_intent(self, intent: HabitatIntent, *, source: str) -> None:
+        if not self.habitat.enabled:
+            self.habitat.enabled = True
+            self.settings.habitat_enabled = True
+        if self.habitat.collapsed:
+            self._set_habitat_collapsed(False)
+        object_id = {
+            HabitatIntent.RETURN_HOME: "cushion",
+            HabitatIntent.REST: "cushion",
+            HabitatIntent.EAT_SNACK: "snack",
+            HabitatIntent.CHASE_BALL: "ball",
+            HabitatIntent.FETCH_BALL: "ball",
+            HabitatIntent.ENTER_BOX: "box",
+            HabitatIntent.EXIT_BOX: "box",
+        }.get(intent, "")
+        if intent is HabitatIntent.EAT_SNACK:
+            available = self.runtime.state.progression.inventory.get("snack", 0)
+            if not self.habitat_controller.spawn_snack(available):
+                if self.habitat_controller.object("snack") is None:
+                    self.bubble = "The snack basket is empty. A daily check-in adds one!"
+                    self.bubble_until = time.monotonic() + 5.0
+                    return
+        if intent is HabitatIntent.EXIT_BOX:
+            box = self.habitat_controller.object("box")
+            if box is not None:
+                box.status = HabitatObjectStatus.PLACED
+        now = time.monotonic()
+        if not self.habitat_controller.begin_interaction(intent, object_id, now):
+            return
+        self._habitat_pending_intent = intent
+        self._habitat_object_id = object_id
+        target = self._habitat_object_rect(object_id)
+        target_x = target.center().x() - self.world.PET_WIDTH / 2 if not target.isEmpty() else self._habitat_rect().center().x()
+        target_x = max(0.0, min(self.world.WIDTH - self.world.PET_WIDTH, target_x))
+        distance = target_x - self.world.x
+        self.world.interrupt()
+        if abs(distance) <= 18.0:
+            self.world.move_horizontal(target_x)
+            self._start_habitat_interaction(now)
+        else:
+            speed = 115.0 if not self.settings.reduced_motion else 82.0
+            self.world.apply_action(
+                PetAction(
+                    ActionKind.WALK,
+                    direction=-1 if distance < 0 else 1,
+                    speed=speed,
+                    duration=min(3.0, max(0.25, abs(distance) / speed)),
+                    source="habitat-approach",
+                    note=f"{source}:{intent.value}",
+                )
+            )
+        self.bubble = {
+            HabitatIntent.REST: "Cushion time…",
+            HabitatIntent.EAT_SNACK: "A tiny snack!",
+            HabitatIntent.CHASE_BALL: "Ball time!",
+            HabitatIntent.FETCH_BALL: "I'll fetch it!",
+            HabitatIntent.ENTER_BOX: "What's inside this box?",
+            HabitatIntent.EXIT_BOX: "Peekaboo!",
+        }.get(intent, "Heading home!")
+        self.bubble_until = now + 4.0
+        self.logger.write("habitat_intent", intent=intent.value, source=source, object_id=object_id)
+
+    def _start_habitat_interaction(self, now: float) -> None:
+        intent = self._habitat_pending_intent
+        if intent is HabitatIntent.NONE:
+            return
+        roles = {
+            HabitatIntent.RETURN_HOME: "happy",
+            HabitatIntent.REST: "sleep",
+            HabitatIntent.EAT_SNACK: "eat",
+            HabitatIntent.CHASE_BALL: "play",
+            HabitatIntent.FETCH_BALL: "play",
+            HabitatIntent.ENTER_BOX: "box",
+            HabitatIntent.EXIT_BOX: "landing",
+        }
+        durations = {
+            HabitatIntent.RETURN_HOME: 1.0,
+            HabitatIntent.REST: 4.0,
+            HabitatIntent.EAT_SNACK: 2.0,
+            HabitatIntent.CHASE_BALL: 2.4,
+            HabitatIntent.FETCH_BALL: 2.4,
+            HabitatIntent.ENTER_BOX: 3.0,
+            HabitatIntent.EXIT_BOX: 1.0,
+        }
+        self._habitat_role = roles.get(intent, "idle")
+        self._habitat_interaction_until = now + durations.get(intent, 1.0)
+        if intent is HabitatIntent.ENTER_BOX:
+            box = self.habitat_controller.object("box")
+            if box is not None:
+                box.status = HabitatObjectStatus.OCCUPIED
+        self.animation.select_role(self._habitat_role, now, force=True)
+
+    def _update_habitat_interaction(self, dt: float, now: float) -> None:
+        if not self._habitat_role:
+            return
+        intent = self._habitat_pending_intent
+        if intent is HabitatIntent.REST:
+            self.runtime.state.needs.energy = min(1.0, self.runtime.state.needs.energy + dt * 0.035)
+        elif intent in {HabitatIntent.CHASE_BALL, HabitatIntent.FETCH_BALL}:
+            self.runtime.state.needs.boredom = max(0.0, self.runtime.state.needs.boredom - dt * 0.05)
+        if now < self._habitat_interaction_until:
+            return
+        self._habitat_interaction_token += 1
+        completion = self.habitat_controller.complete_interaction(
+            token=f"interaction-{self._habitat_interaction_token}",
+            object_id=self._habitat_object_id,
+            now=now,
+        )
+        if completion.accepted and completion.intent is HabitatIntent.EAT_SNACK:
+            if self.habitat_controller.consume_snack():
+                self.runtime.life.progression.use_item(self.runtime.state, "snack")
+        if completion.accepted and completion.reward_allowed:
+            self.runtime.publish(
+                UserInteractionEvent(
+                    name="habitat_complete",
+                    data={"kind": completion.intent.value},
+                )
+            )
+            self._play_soft_sound()
+        if completion.intent is HabitatIntent.ENTER_BOX:
+            box = self.habitat_controller.object("box")
+            if box is not None:
+                box.status = HabitatObjectStatus.PLACED
+        self._habitat_role = ""
+        self._habitat_pending_intent = HabitatIntent.NONE
+        self._habitat_object_id = ""
+        self.next_decision_at = now + 0.4
+        self.runtime.save()
+        self.companion_panel.refresh()
+
+    def _play_soft_sound(self) -> None:
+        if not self.settings.sound_enabled or self.settings.sound_volume <= 0.0:
+            return
+        source = Path(__file__).resolve().parents[2] / "assets" / "sounds" / "momo_pop.wav"
+        if not source.is_file():
+            source = Path(sys.prefix) / "share" / "vla-pet" / "sounds" / "momo_pop.wav"
+        if not source.is_file():
+            return
+        try:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtMultimedia import QSoundEffect
+
+            if not isinstance(self._sound_effect, QSoundEffect):
+                self._sound_effect = QSoundEffect(self)
+                self._sound_effect.setSource(QUrl.fromLocalFile(str(source)))
+            self._sound_effect.setVolume(self.settings.sound_volume)
+            self._sound_effect.play()
+        except (ImportError, RuntimeError):
+            self._sound_effect = None
+
+    def _update_quick_menu(self, now: float) -> None:
+        if self._dragging and not self._drag_moved and now - self._pet_pressed_at >= 0.35:
+            self.world.drop()
+            self._dragging = False
+            self.unsetCursor()
+            self._quick_menu_visible = True
+            self._quick_menu_until = now + 5.0
+        if self._hover_pet_started_at and now - self._hover_pet_started_at >= 0.35:
+            self._quick_menu_visible = True
+            self._quick_menu_until = max(self._quick_menu_until, now + 1.5)
+        if self._quick_menu_visible and now >= self._quick_menu_until:
+            self._quick_menu_visible = False
+
+    def _quick_action_rects(self) -> dict[str, QRect]:
+        if not self._quick_menu_visible:
+            return {}
+        sprite, x, y = self._sprite_geometry()
+        width, height, gap = 72, 30, 5
+        total = width * 3 + gap * 2
+        left = max(6, min(self.width() - total - 6, x + sprite.width() // 2 - total // 2))
+        top = max(6, y - 74)
+        return {
+            "chat": QRect(left, top, width, height),
+            "snack": QRect(left + width + gap, top, width, height),
+            "ball": QRect(left + (width + gap) * 2, top, width, height),
+            "home": QRect(left + 36, top + height + gap, width, height),
+            "more": QRect(left + 36 + width + gap, top + height + gap, width, height),
+        }
 
     def _apply_life_action(self, now: float) -> None:
         intent = self._life_decision.intent if self._life_decision else LifeIntent.WALK
@@ -1073,21 +1429,27 @@ class DesktopPetOverlay(QWidget):
             routine_step=self._life_routine_step - 1,
         )
 
-    def _scaled_sprite(self, kind: ActionKind, height: int | None = None) -> QPixmap:
+    def _scaled_sprite(self, kind: ActionKind | str, height: int | None = None) -> QPixmap:
         target_height = height or self.config.pet_size
-        frame_path = self.animation.frame(time.monotonic(), kind)
-        flipped = sprite_needs_flip(kind, self.world.facing)
+        now = time.monotonic()
+        if isinstance(kind, ActionKind):
+            frame_path = self.animation.frame(now, kind)
+            flip_kind = kind
+        else:
+            frame_path = self.animation.frame_role(now, kind)
+            flip_kind = ActionKind.WALK if kind in {"walk", "play"} else ActionKind.IDLE
+        flipped = sprite_needs_flip(flip_kind, self.world.facing)
         cache_key = (frame_path, target_height, flipped)
         cached = self._sprite_cache.get(cache_key)
         if cached is not None:
             return cached
         sprite = self.sprites[frame_path].scaledToHeight(
-            target_height, Qt.TransformationMode.SmoothTransformation
+            target_height, Qt.TransformationMode.FastTransformation
         )
         if flipped:
             sprite = sprite.transformed(
                 QTransform().scale(-1, 1),
-                Qt.TransformationMode.SmoothTransformation,
+                Qt.TransformationMode.FastTransformation,
             )
         self._sprite_cache[cache_key] = sprite
         return sprite
@@ -1098,7 +1460,10 @@ class DesktopPetOverlay(QWidget):
         painter.fillRect(event.rect(), QColor(0, 0, 0, 0))
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+
+        if event.rect().intersects(self._habitat_rect()):
+            self._paint_habitat(painter)
 
         sprite, x, y = self._sprite_geometry()
         painter.drawPixmap(x, y, sprite)
@@ -1107,6 +1472,8 @@ class DesktopPetOverlay(QWidget):
             self._paint_bubble(painter, x + sprite.width() // 2, y, self.bubble)
         if self.config.debug:
             self._paint_debug(painter, x, y)
+        if self._quick_menu_visible:
+            self._paint_quick_menu(painter)
         painter.end()
         if self._shrink_mask_after_paint and not self._pending_mask.isEmpty():
             self._set_overlay_mask(self._pending_mask)
@@ -1115,12 +1482,30 @@ class DesktopPetOverlay(QWidget):
     def _repaint_moving_content(self) -> None:
         sprite, sprite_x, sprite_y = self._sprite_geometry()
         current = self._visual_bounds_for(sprite, sprite_x, sprite_y)
+        habitat_rect = self._habitat_rect()
+        habitat_signature = (
+            self.habitat.enabled,
+            self.habitat.collapsed,
+            round(self.habitat.anchor_x, 4),
+            tuple(
+                (
+                    item.object_id,
+                    round(item.x, 3),
+                    round(item.y, 3),
+                    item.status.value,
+                    item.visible,
+                )
+                for item in self.habitat.objects
+            ),
+        )
+        habitat_changed = habitat_signature != self._last_habitat_signature
         signature = (
             current.width(),
             current.height(),
             self.animation.frame(time.monotonic()),
             self.world.facing,
             self.bubble,
+            self._quick_menu_visible,
             self.status if self.config.debug else "",
             self.raw_vector if self.config.debug else (),
         )
@@ -1131,12 +1516,17 @@ class DesktopPetOverlay(QWidget):
             and moved_x < 4
             and moved_y < 4
             and signature == self._last_render_signature
+            and not habitat_changed
         ):
             return
         previous_mask = self._pending_mask
         self._last_render_signature = signature
         dirty = self._last_visual_rect.united(current).adjusted(-4, -4, 4, 4)
         self._last_visual_rect = current
+        if habitat_changed:
+            dirty = dirty.united(self._last_habitat_rect).united(habitat_rect).adjusted(-3, -3, 3, 3)
+            self._last_habitat_rect = habitat_rect
+            self._last_habitat_signature = habitat_signature
         if not dirty.isEmpty():
             desired_mask = self._interaction_region_for(
                 sprite,
@@ -1152,7 +1542,13 @@ class DesktopPetOverlay(QWidget):
                 current,
                 min(24, self.config.interaction_padding),
             )
-            mask_context = (bool(self.bubble), self.config.debug)
+            mask_context = (
+                bool(self.bubble),
+                self.config.debug,
+                self._quick_menu_visible,
+                self.habitat.enabled,
+                self.habitat.collapsed,
+            )
             can_reuse_mask = (
                 not previous_mask.isEmpty()
                 and mask_context == self._last_mask_context
@@ -1178,15 +1574,113 @@ class DesktopPetOverlay(QWidget):
             bounds = bounds.united(self._bubble_rect(x + sprite.width() // 2, y, self.bubble).toRect())
         if self.config.debug:
             bounds = bounds.united(QRect(max(5, x - 80), max(5, y - 100), 420, 70))
+        for rect in self._quick_action_rects().values():
+            bounds = bounds.united(rect.adjusted(-3, -3, 3, 3))
         return bounds
 
     def _sprite_geometry(self) -> tuple[QPixmap, int, int]:
-        loading_walk = not self.world.is_busy and "decide" in self.ai.pending_kinds
-        pose = ActionKind.WALK if loading_walk else self.world.pose
+        now = time.monotonic()
+        loading = not self.world.is_busy and any(
+            kind in self.ai.pending_kinds for kind in ("decide", "habitat")
+        )
+        if self.world.being_held:
+            pose: ActionKind | str = "held"
+        elif self.world.user_falling:
+            pose = "fall"
+        elif now < self._landing_until:
+            pose = "landing"
+        elif self._habitat_role:
+            pose = self._habitat_role
+        elif self.runtime.state.listening:
+            pose = "listen"
+        elif self.runtime.state.speaking:
+            pose = "talk"
+        elif loading:
+            pose = "think"
+        else:
+            pose = self.world.pose
         sprite = self._scaled_sprite(pose)
         x = int(self.world.x + self.world.PET_WIDTH / 2 - sprite.width() / 2)
         y = int(self.world.y + self.world.PET_HEIGHT - sprite.height())
         return sprite, x, y
+
+    def _paint_habitat(self, painter: QPainter) -> None:
+        habitat = self._habitat_rect()
+        if habitat.isEmpty():
+            return
+        painter.setPen(QPen(QColor("#B98970"), 2))
+        painter.setBrush(QColor(255, 246, 230, 244))
+        painter.drawRoundedRect(QRectF(habitat), 18, 18)
+        if self.habitat.collapsed:
+            painter.setPen(QColor("#B9362E"))
+            painter.setFont(QFont("Sans Serif", 16, QFont.Weight.Bold))
+            painter.drawText(habitat, Qt.AlignmentFlag.AlignCenter, "M")
+            return
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#CFE6D4"))
+        painter.drawRoundedRect(
+            QRectF(habitat.x() + 8, habitat.bottom() - 42, habitat.width() - 16, 34),
+            12,
+            12,
+        )
+        painter.setPen(QColor("#816B62"))
+        painter.setFont(QFont("Sans Serif", 9, QFont.Weight.DemiBold))
+        painter.drawText(
+            QRect(habitat.x() + 45, habitat.y() + 10, 180, 25),
+            Qt.AlignmentFlag.AlignVCenter,
+            "Momo's cozy nook",
+        )
+        toggle = self._habitat_toggle_rect()
+        painter.setPen(QPen(QColor("#E7CDB7"), 1))
+        painter.setBrush(QColor("#FFFDF7"))
+        painter.drawRoundedRect(QRectF(toggle), 9, 9)
+        painter.setPen(QColor("#B9362E"))
+        painter.drawText(toggle, Qt.AlignmentFlag.AlignCenter, "—")
+        for item in self.habitat.objects:
+            if not item.visible:
+                continue
+            rect = self._habitat_object_rect(item.object_id)
+            if item.kind is HabitatObjectKind.CUSHION:
+                painter.setPen(QPen(QColor("#D69A83"), 2))
+                painter.setBrush(QColor("#F1B6A0"))
+                painter.drawEllipse(QRectF(rect))
+                painter.setPen(QColor("#FFF6E6"))
+                painter.drawArc(rect.adjusted(16, 7, -16, -7), 10 * 16, 160 * 16)
+            elif item.kind is HabitatObjectKind.BALL:
+                painter.setPen(QPen(QColor("#8D2B28"), 2))
+                painter.setBrush(QColor("#D84A3D"))
+                painter.drawEllipse(QRectF(rect))
+                painter.setPen(QPen(QColor("#FFF6E6"), 5))
+                painter.drawArc(rect.adjusted(4, 2, -4, -2), 70 * 16, 145 * 16)
+            elif item.kind is HabitatObjectKind.SNACK:
+                painter.setPen(QPen(QColor("#A86F24"), 2))
+                painter.setBrush(QColor("#F2C45E"))
+                painter.drawEllipse(QRectF(rect.adjusted(3, 3, -3, -3)))
+                painter.setPen(QColor("#8A512B"))
+                painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "★")
+            elif item.kind is HabitatObjectKind.BOX:
+                painter.setPen(QPen(QColor("#8C5E3D"), 2))
+                painter.setBrush(QColor("#C99158"))
+                painter.drawRoundedRect(QRectF(rect), 5, 5)
+                painter.drawLine(rect.left(), rect.top() + 15, rect.right(), rect.top() + 15)
+                painter.setPen(QColor("#6F452D"))
+                painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "♡")
+
+    def _paint_quick_menu(self, painter: QPainter) -> None:
+        labels = {
+            "chat": "Chat",
+            "snack": "Snack",
+            "ball": "Ball",
+            "home": "Home",
+            "more": "More",
+        }
+        for action, rect in self._quick_action_rects().items():
+            painter.setPen(QPen(QColor("#E7CDB7"), 1))
+            painter.setBrush(QColor(255, 253, 247, 248))
+            painter.drawRoundedRect(QRectF(rect), 10, 10)
+            painter.setPen(QColor("#4A3028"))
+            painter.setFont(QFont("Sans Serif", 9, QFont.Weight.DemiBold))
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, labels[action])
 
     def _interaction_region(self) -> QRegion:
         sprite, x, y = self._sprite_geometry()
@@ -1215,7 +1709,11 @@ class DesktopPetOverlay(QWidget):
         ).intersected(self.rect())
         # The window mask controls visibility as well as input on Wayland, so
         # speech/debug areas must be included along with the generous pet hitbox.
-        return QRegion(pet_rect).united(QRegion(visual_bounds))
+        region = QRegion(pet_rect).united(QRegion(visual_bounds))
+        habitat = self._habitat_rect()
+        if not habitat.isEmpty():
+            region = region.united(QRegion(habitat))
+        return region
 
     def _update_interaction_mask(self) -> None:
         self._pending_mask = self._interaction_region()
@@ -1242,9 +1740,48 @@ class DesktopPetOverlay(QWidget):
                 self._open_chat()
                 event.accept()
                 return
+            local_x, local_y = self._event_local_position(event)
+            for action, rect in self._quick_action_rects().items():
+                if rect.contains(round(local_x), round(local_y)):
+                    self._quick_menu_visible = False
+                    if action == "chat":
+                        self._open_chat()
+                    else:
+                        self._habitat_quick_action(action)
+                    event.accept()
+                    return
+            toggle = self._habitat_toggle_rect()
+            if not toggle.isEmpty() and toggle.contains(round(local_x), round(local_y)):
+                self._set_habitat_collapsed(not self.habitat.collapsed)
+                event.accept()
+                return
+            object_id = self._habitat_object_at(local_x, local_y)
+            if object_id and self.habitat_controller.start_drag(object_id):
+                self._drag_object_id = object_id
+                now = time.monotonic()
+                self._object_last_pointer = (local_x, local_y, now)
+                self._object_velocity = (0.0, 0.0)
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+                return
+            habitat = self._habitat_rect()
+            if (
+                not habitat.isEmpty()
+                and not self.habitat.collapsed
+                and habitat.contains(round(local_x), round(local_y))
+            ):
+                if local_y <= habitat.y() + 44:
+                    self._habitat_dragging = True
+                    self._habitat_press_x = local_x
+                    self._habitat_anchor_at_press = self.habitat.anchor_x
+                    self.setCursor(Qt.CursorShape.SizeHorCursor)
+                event.accept()
+                return
             self.world.pick_up()
             self._dragging = True
             self._drag_moved = False
+            self._pet_pressed_at = time.monotonic()
+            self._hover_pet_started_at = 0.0
             self._press_global_x = event.globalPosition().x()
             self._press_global_y = event.globalPosition().y()
             self._press_world_x = self.world.x
@@ -1261,6 +1798,38 @@ class DesktopPetOverlay(QWidget):
             return
 
     def _interaction_mouse_move(self, event: QMouseEvent) -> None:
+        local_x, local_y = self._event_local_position(event)
+        self._last_pointer_position = (local_x, local_y)
+        if self._drag_object_id and event.buttons() & Qt.MouseButton.LeftButton:
+            habitat = self._habitat_rect()
+            if not habitat.isEmpty():
+                self.habitat_controller.drag_to(
+                    self._drag_object_id,
+                    (local_x - habitat.x()) / max(1.0, habitat.width()),
+                    (local_y - habitat.y()) / max(1.0, habitat.height()),
+                )
+                now = time.monotonic()
+                previous = self._object_last_pointer
+                if previous is not None and now > previous[2]:
+                    self._object_velocity = (
+                        (local_x - previous[0]) / (now - previous[2]),
+                        (local_y - previous[1]) / (now - previous[2]),
+                    )
+                self._object_last_pointer = (local_x, local_y, now)
+                self._repaint_moving_content()
+            event.accept()
+            return
+        if self._habitat_dragging and event.buttons() & Qt.MouseButton.LeftButton:
+            habitat_width = 44 if self.habitat.collapsed else min(420, self.width())
+            travel = max(1.0, self.width() - habitat_width)
+            self.habitat.anchor_x = min(
+                1.0,
+                max(0.0, self._habitat_anchor_at_press + (local_x - self._habitat_press_x) / travel),
+            )
+            self.settings.habitat_position = self.habitat.anchor_x
+            self._repaint_moving_content()
+            event.accept()
+            return
         if self._dragging and event.buttons() & Qt.MouseButton.LeftButton:
             delta_x = event.globalPosition().x() - self._press_global_x
             delta_y = event.globalPosition().y() - self._press_global_y
@@ -1270,8 +1839,40 @@ class DesktopPetOverlay(QWidget):
             self._repaint_moving_content()
             event.accept()
             return
+        sprite, sprite_x, sprite_y = self._sprite_geometry()
+        hover_rect = QRect(sprite_x, sprite_y, sprite.width(), sprite.height()).adjusted(-20, -20, 20, 20)
+        if hover_rect.contains(round(local_x), round(local_y)):
+            if self._hover_pet_started_at <= 0.0:
+                self._hover_pet_started_at = time.monotonic()
+        elif not any(
+            rect.contains(round(local_x), round(local_y))
+            for rect in self._quick_action_rects().values()
+        ):
+            self._hover_pet_started_at = 0.0
 
     def _interaction_mouse_release(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_object_id:
+            object_id = self._drag_object_id
+            self._drag_object_id = ""
+            self.unsetCursor()
+            self.habitat_controller.release_drag(
+                object_id,
+                self._object_velocity[0],
+                self._object_velocity[1],
+            )
+            self._object_last_pointer = None
+            self.runtime.save()
+            self.logger.write("habitat_object_drop", object_id=object_id)
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.LeftButton and self._habitat_dragging:
+            self._habitat_dragging = False
+            self.unsetCursor()
+            self.settings.habitat_position = self.habitat.anchor_x
+            self.settings.save(self.runtime.repository)
+            self.runtime.save()
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton and self._dragging:
             self._dragging = False
             self.unsetCursor()
@@ -1301,9 +1902,16 @@ class DesktopPetOverlay(QWidget):
                 self.runtime.publish(UserInteractionEvent(name="drop"))
             event.accept()
             return
+        if event.button() == Qt.MouseButton.LeftButton and self._quick_menu_visible:
+            event.accept()
+
+    def _event_local_position(self, event: QMouseEvent) -> tuple[float, float]:
+        position = event.globalPosition()
+        geometry = self.geometry()
+        return position.x() - geometry.x(), position.y() - geometry.y()
 
     def _open_chat(self) -> None:
-        self.chat_dialog.show_and_focus()
+        self.companion_panel.show_page("chat")
         self.runtime.publish(UserInteractionEvent(name="chat_open"))
         self.logger.write("chat_opened")
 
@@ -1583,6 +2191,67 @@ class DesktopPetOverlay(QWidget):
         observation.validate()
         return observation
 
+    def _build_habitat_observation(self) -> HabitatObservation:
+        """Render only Momo-owned state into a fixed synthetic cognition image."""
+        scene = QImage(QSize(256, 256), QImage.Format.Format_RGB888)
+        scene.fill(QColor("#FFF6E6"))
+        painter = QPainter(scene)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#CFE6D4"))
+        painter.drawRoundedRect(QRectF(8, 196, 240, 45), 12, 12)
+        colors = {
+            HabitatObjectKind.CUSHION: QColor("#F1B6A0"),
+            HabitatObjectKind.SNACK: QColor("#F2C45E"),
+            HabitatObjectKind.BALL: QColor("#D84A3D"),
+            HabitatObjectKind.BOX: QColor("#C99158"),
+        }
+        sizes = {
+            HabitatObjectKind.CUSHION: (55, 20),
+            HabitatObjectKind.SNACK: (16, 16),
+            HabitatObjectKind.BALL: (20, 20),
+            HabitatObjectKind.BOX: (44, 38),
+        }
+        for item in self.habitat.objects:
+            if not item.visible:
+                continue
+            width, height = sizes[item.kind]
+            center_x = round(item.x * 240) + 8
+            center_y = round(item.y * 190) + 36
+            rect = QRectF(center_x - width / 2, center_y - height / 2, width, height)
+            painter.setBrush(colors[item.kind])
+            painter.setPen(QPen(QColor("#8C5E3D"), 2))
+            if item.kind in {
+                HabitatObjectKind.CUSHION,
+                HabitatObjectKind.SNACK,
+                HabitatObjectKind.BALL,
+            }:
+                painter.drawEllipse(rect)
+            else:
+                painter.drawRoundedRect(rect, 4, 4)
+        idle_path = str(self.character.animation_for("idle").frames[0])
+        pet = self.sprites[idle_path].scaledToHeight(72, Qt.TransformationMode.FastTransformation)
+        pet_x = round(
+            self.runtime.state.x * max(1, 256 - pet.width())
+        )
+        painter.drawPixmap(pet_x, 204 - pet.height(), pet)
+        painter.end()
+        environment = self.habitat_controller.environment_snapshot(
+            pet_x=self.runtime.state.x,
+            pet_y=self.runtime.state.y,
+            energy=self.runtime.state.needs.energy,
+            boredom=self.runtime.state.needs.boredom,
+            curiosity=self.runtime.state.needs.curiosity,
+            snack_count=self.runtime.state.progression.inventory.get("snack", 0),
+        )
+        observation = HabitatObservation(
+            sequence_id=self.world.sequence_id,
+            image=self._qimage_to_chw(scene),
+            environment=environment,
+        )
+        observation.validate()
+        return observation
+
     @staticmethod
     def _qimage_to_chw(image: QImage) -> np.ndarray:
         converted = image.convertToFormat(QImage.Format.Format_RGB888)
@@ -1598,6 +2267,7 @@ class DesktopPetOverlay(QWidget):
         self._stopped = True
         self.timer.stop()
         self.notification_monitor.stop()
+        self.companion_panel.hide()
         self.chat_dialog.hide()
         self.control_center.hide()
         if self._onboarding is not None:

@@ -74,7 +74,7 @@ def test_v1_database_migrates_v1_with_backup(tmp_path: Path) -> None:
     assert check.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert check.execute("SELECT name FROM sqlite_master WHERE name='memory_items'").fetchone()
     check.close()
-    assert database.with_name("pet.db.pre-v2-from-v1.bak").is_file()
+    assert database.with_name("pet.db.pre-v3-from-v1.bak").is_file()
 
 
 def test_memory_task_audit_plugin_and_backup_round_trip(tmp_path: Path) -> None:
@@ -207,7 +207,8 @@ def test_export_contains_v1_private_tables(tmp_path: Path) -> None:
     with StateRepository(tmp_path / "pet.db") as repository:
         repository.export(export)
     payload = json.loads(export.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
+    assert "habitat_state" in payload
     assert {"memory_items", "tasks", "tool_audit", "plugin_state"} <= payload.keys()
 
 

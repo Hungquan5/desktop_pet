@@ -14,12 +14,14 @@ from vla_pet.contracts import (
     ActionKind,
     ChatRequest,
     ChatResult,
+    HabitatIntent,
     LanguageNarration,
     NotificationRequest,
     PetAction,
     SandboxObservation,
     VisualQuestion,
 )
+from vla_pet.habitat import HabitatObservation
 
 
 def resolve_quantization_mode(mode: str, device: str) -> str:
@@ -133,6 +135,22 @@ def infer_confirmed_action_intent(message: str, reply: str) -> ActionIntent | No
         if re.search(pattern, user) and any(word in answer for word in confirmations):
             return intent
     return None
+
+
+def infer_habitat_intent(message: str) -> HabitatIntent | None:
+    """Parse only explicit, low-risk commands for the pet-owned environment."""
+    text = " ".join(message.lower().split())
+    if not re.search(r"\b(?:please|can you|could you|would you|go|come|have|eat|play|fetch|sleep|nap|rest|hide|get|open|use|take|toss|throw|give)\b", text):
+        return None
+    rules = (
+        (HabitatIntent.EXIT_BOX, r"\b(?:exit|get out|come out|leave)\b.*\bbox\b"),
+        (HabitatIntent.ENTER_BOX, r"\b(?:box|hide|peek)\b"),
+        (HabitatIntent.EAT_SNACK, r"\b(?:snack|cookie|eat|hungry)\b"),
+        (HabitatIntent.CHASE_BALL, r"\b(?:ball|fetch|play|toss|throw)\b"),
+        (HabitatIntent.REST, r"\b(?:sleep|nap|rest|cushion)\b"),
+        (HabitatIntent.RETURN_HOME, r"\b(?:go home|come home|your nook|cozy corner)\b"),
+    )
+    return next((intent for intent, pattern in rules if re.search(pattern, text)), None)
 
 
 def narration_is_grounded(text: str, action: ActionKind) -> bool:
@@ -404,6 +422,29 @@ class SmolVLMPetPolicy(PetPolicy):
         output = self._generate(image, prompt, max_new_tokens=48)
         return clean_answer(output)
 
+    def choose_habitat(self, observation: HabitatObservation) -> HabitatIntent:
+        observation.validate()
+        from PIL import Image
+
+        image_hwc = np.transpose(observation.image, (1, 2, 0))
+        image = Image.fromarray(np.clip(image_hwc * 255.0, 0, 255).astype(np.uint8), mode="RGB")
+        environment = observation.environment
+        labels = tuple(intent.value.upper() for intent in environment.candidates)
+        prompt = (
+            "This image is a synthetic scene belonging only to a desktop pet. "
+            "Choose exactly one safe next action from: "
+            f"{', '.join(labels)}. Reply with only that label. "
+            f"Energy={environment.energy:.2f}; boredom={environment.boredom:.2f}; "
+            f"curiosity={environment.curiosity:.2f}. Prefer REST at low energy, "
+            "CHASE_BALL at high boredom, and ENTER_BOX at high curiosity."
+        )
+        output = self._generate(image, prompt, max_new_tokens=8, choices=labels)
+        normalized = re.sub(r"[^A-Z_]+", " ", output.upper())
+        for intent in environment.candidates:
+            if re.search(rf"\b{re.escape(intent.value.upper())}\b", normalized):
+                return intent
+        return environment.candidates[0]
+
     def _generate(
         self,
         image,
@@ -537,7 +578,7 @@ class SmolLMPetLanguage:
         if chat_reply_is_degenerate(answer) or chat_reply_repeats_history(answer, request.history):
             answer = chat_fallback(request.message)
         requested_action = infer_confirmed_action_intent(request.message, answer)
-        result = ChatResult(answer, requested_action)
+        result = ChatResult(answer, requested_action, infer_habitat_intent(request.message))
         result.validate()
         return result
 

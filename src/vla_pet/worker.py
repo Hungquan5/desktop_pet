@@ -46,7 +46,13 @@ class MockRequestHandler:
         started = time.monotonic() if started is None else started
         request.payload.validate()
         if request.kind == "chat":
-            payload: object = ChatResult("Hi! I'm happy to chat with you.")
+            from vla_pet.policy import infer_habitat_intent
+
+            habitat_intent = infer_habitat_intent(request.payload.message)
+            payload: object = ChatResult(
+                "Okay—let's do that!" if habitat_intent else "Hi! I'm happy to chat with you.",
+                habitat_intent=habitat_intent,
+            )
         elif request.kind == "transcribe":
             payload = "hello from voice"
         elif request.kind == "notify":
@@ -64,15 +70,18 @@ class MockRequestHandler:
             )
         elif request.kind == "decide":
             payload = self._policy.decide(request.payload)
+        elif request.kind == "habitat":
+            environment = request.payload.environment
+            payload = environment.candidates[0]
         else:
             raise ValueError(f"Unsupported mock request kind: {request.kind}")
         metadata: dict[str, Any] = {}
-        if request.kind == "decide":
+        if request.kind in {"decide", "habitat"}:
             metadata = {
                 "sequence_id": request.payload.sequence_id,
                 "requested_action": (
                     request.payload.requested_action.value
-                    if request.payload.requested_action is not None
+                    if request.kind == "decide" and request.payload.requested_action is not None
                     else ""
                 ),
             }
@@ -170,7 +179,15 @@ def _worker_main(requests: Any, responses: Any, config: WorkerConfig) -> None:
             return
         started = time.monotonic()
 
-        if request.kind in ("decide", "ask_screen", "chat", "narrate", "notify", "transcribe"):
+        if request.kind in (
+            "decide",
+            "habitat",
+            "ask_screen",
+            "chat",
+            "narrate",
+            "notify",
+            "transcribe",
+        ):
             try:
                 if mock_handler is not None:
                     responses.put(mock_handler.handle(request, started))
@@ -252,6 +269,22 @@ def _worker_main(requests: Any, responses: Any, config: WorkerConfig) -> None:
                             answer,
                             f"{config.model_id} + {config.language_model_id}",
                             time.monotonic() - started,
+                        )
+                    )
+                    continue
+
+                if request.kind == "habitat":
+                    request.payload.validate()
+                    intent = providers.visual().choose_habitat(request.payload)
+                    responses.put(
+                        WorkerResponse(
+                            request.request_id,
+                            "habitat",
+                            True,
+                            intent,
+                            config.model_id,
+                            time.monotonic() - started,
+                            metadata={"sequence_id": request.payload.sequence_id},
                         )
                     )
                     continue
@@ -350,6 +383,25 @@ def _worker_main(requests: Any, responses: Any, config: WorkerConfig) -> None:
                             time.monotonic() - started,
                             error,
                             metadata=diagnostic,
+                        )
+                    )
+                    continue
+                if request.kind == "habitat":
+                    from vla_pet.contracts import HabitatIntent
+
+                    responses.put(
+                        WorkerResponse(
+                            request.request_id,
+                            "habitat",
+                            False,
+                            HabitatIntent.RETURN_HOME,
+                            "fallback",
+                            time.monotonic() - started,
+                            error,
+                            metadata={
+                                "sequence_id": getattr(request.payload, "sequence_id", -1),
+                                **diagnostic,
+                            },
                         )
                     )
                     continue

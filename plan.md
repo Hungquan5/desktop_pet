@@ -1,22 +1,23 @@
 # End-to-end development plan for `desktop_pet`
 
-> Status: v1.0 local technical acceptance complete, revised 2026-07-19  
+> Status: v1.1 implementation and acceptance in progress, revised 2026-07-19  
 > Current implementation package: `vla_pet`  
-> Immediate release target: `v1.0.0` local-first living desktop companion  
+> Immediate release target: `v1.1.0` cozy desktop habitat and companion UI  
 > Delivery path: the staged `v0.3`–`v1.0` slices in sections 0.13 and 7
 
-The measured acceptance records are in
+The measured v1.0 acceptance records are in
 [`docs/release-evidence-v0.2.md`](docs/release-evidence-v0.2.md) and
 [`docs/release-evidence-v1.0.md`](docs/release-evidence-v1.0.md). Public binary
-distribution remains separate from local technical acceptance until the bundled
-character art provenance is documented.
+distribution of v1.1 uses the provenance-documented Momo v2 pack; unresolved
+prototype sprites remain excluded from its artifact.
 
-**Refined execution goal:** ship `v1.0.0` as an installed, local-first living
-desktop companion on the Linux/GNOME Wayland reference host. One lazy worker
+**Refined execution goal:** ship `v1.1.0` as an installed, local-first living
+desktop companion with a cozy tactile habitat on the Linux/GNOME Wayland
+reference host. One lazy worker
 coordinates SmolLM, SmolVLM, and Whisper while the renderer, deterministic life
 loop, memory, permissions, tools, awareness, progression, plugins, recovery,
 updates, and deployment remain independently testable and privacy bounded. The
-release is accepted only through the end-to-end contract in section 0.13.
+release is accepted only through the v1.0 baseline and section 0.14.
 
 ## 0. Delivery contract
 
@@ -314,6 +315,31 @@ an interface or placeholder alone does not satisfy a user-facing requirement.
 - [x] Deliver Ships with onboarding, recovery, updates, packaging, CI, and docs.
 - [x] Pass the complete automated, cached-model, performance, migration,
   install/rollback, and live GNOME Wayland v1.0 acceptance gates.
+
+### 0.14 v1.1 cozy habitat execution contract
+
+v1.1 keeps every v1.0 privacy and worker invariant while making the daily pet
+experience friendlier, more tactile, and visually coherent.
+
+| Area | Required result | Acceptance gate |
+|---|---|---|
+| Visual system | Shared cream/tomato/cocoa/mint/gold theme and original provenance-safe multi-frame Momo v2 pixel-chibi pack. | Schema-3 pack validates; release contains no unresolved prototype PNG. |
+| Companion panel | One Home/Chat/Play/Settings window with advanced controls nested and the prior chat/voice/cancel contracts preserved. | Offscreen Qt tests cover navigation, streaming, suggestions, simple settings, and coachmark. |
+| Quick interaction | Hover/hold quick bubble with Chat, Snack, Ball, Home, More while left drag, Ctrl-click, and right-click retain their meanings. | Pointer routing and Wayland-mask tests pass. |
+| Desktop habitat | Default 420×190 bottom-edge nook, movable, persistent, collapsible to 44 px, with cushion/snack/ball/box. | Physics, collapse/expand, restart, and click-through tests pass. |
+| Behavior | Deterministic immediate motion and idempotent positive-only rewards; SmolLM can request habitat intents and SmolVLM may choose only from typed candidates. | One existing worker, one cognition cadence, synthetic 256×256 habitat scene, no implicit desktop capture. |
+| Persistence | Database schema 3 atomically saves pet progression and habitat; settings schema 2 and character schema 3 migrate old values safely. | Mode-0600 backup plus v1.0→v1.1 migration/restart test. |
+| Accessibility | Reduced motion, muted-by-default original soft sound, habitat off switch, and first-use coachmark. | Defaults and settings round trips are deterministic in safe mode. |
+
+Implementation order:
+
+- [x] Freeze habitat, settings, character, and persistence contracts.
+- [x] Create and validate Momo v2 assets and the shared cozy theme.
+- [x] Implement pure habitat state, object physics, completion, and rewards.
+- [x] Integrate habitat rendering, masks, input, quick actions, and model routing.
+- [x] Build the unified companion panel and nested advanced controls.
+- [ ] Pass complete tests, package verification, performance checks, and live
+  GNOME Wayland upgrade/rollback acceptance.
 
 ---
 

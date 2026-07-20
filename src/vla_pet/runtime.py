@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from vla_pet.events import EventBus, PetEvent, PlatformEvent, UserInteractionEvent
+from vla_pet.habitat import HabitatController, HabitatState
 from vla_pet.life import LifeContext, LifeDecision, LifeEngine
 from vla_pet.memory import MemoryManager
 from vla_pet.persistence import StateRepository
@@ -20,11 +21,14 @@ class RuntimeController:
         life: LifeEngine | None = None,
         repository: StateRepository | None = None,
         memory_enabled: bool = False,
+        habitat: HabitatState | None = None,
     ) -> None:
         self.state = state or PetRuntimeState()
         self.bus = bus or EventBus()
         self.life = life or LifeEngine()
         self.repository = repository
+        self.habitat = habitat or HabitatState()
+        self.habitat_controller = HabitatController(self.habitat)
         self.memory = MemoryManager(repository) if repository is not None else None
         self.memory_enabled = bool(memory_enabled)
         self.bus.subscribe(UserInteractionEvent, self._on_user_interaction)
@@ -35,7 +39,11 @@ class RuntimeController:
         if not enabled:
             return cls()
         repository = StateRepository(path)
-        return cls(repository.load_state(), repository=repository)
+        return cls(
+            repository.load_state(),
+            repository=repository,
+            habitat=repository.load_habitat(),
+        )
 
     def tick(self, dt: float, *, context: LifeContext | None = None) -> LifeDecision | None:
         return self.life.tick(self.state, dt, context=context)
@@ -69,11 +77,11 @@ class RuntimeController:
 
     def save(self) -> None:
         if self.repository:
-            self.repository.save_state(self.state)
+            self.repository.save_companion_state(self.state, self.habitat)
 
     def close(self) -> None:
         if self.repository:
-            self.repository.save_state(self.state)
+            self.repository.save_companion_state(self.state, self.habitat)
             self.repository.close()
             self.repository = None
 

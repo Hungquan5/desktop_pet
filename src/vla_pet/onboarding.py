@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from vla_pet.settings import CompanionSettings
+from vla_pet.theme import apply_companion_theme
 
 
 class OnboardingWizard(QWizard):
@@ -33,6 +34,7 @@ class OnboardingWizard(QWizard):
         self.addPage(self._voice(microphone_ready, tts_ready))
         self.addPage(self._finish(character_name))
         self.finished.connect(self._store)
+        apply_companion_theme(self)
 
     def _welcome(self) -> QWizardPage:
         page = QWizardPage()
@@ -108,7 +110,8 @@ class OnboardingWizard(QWizard):
         layout.addWidget(
             QLabel(
                 "Left-drag to move the pet, Ctrl-click to chat, right-click for an authorized "
-                "screen question, and use the tray or chat controls for settings and privacy."
+                "screen question, and open the paw nook for snacks, ball play, naps, and boxes. "
+                "The nook can be collapsed or disabled at any time."
             )
         )
         return page

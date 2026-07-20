@@ -56,7 +56,13 @@ class OpenAICompatibleLanguage:
         )
         messages.append({"role": "user", "content": request.message})
         answer = clean_dialogue(self._complete(messages, max_tokens=96), repeated_text=request.message)
-        return ChatResult(answer, infer_confirmed_action_intent(request.message, answer))
+        from vla_pet.policy import infer_habitat_intent
+
+        return ChatResult(
+            answer,
+            infer_confirmed_action_intent(request.message, answer),
+            infer_habitat_intent(request.message),
+        )
 
     def narrate(self, request: LanguageNarration) -> str:
         request.validate()

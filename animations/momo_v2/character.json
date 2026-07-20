@@ -1,0 +1,48 @@
+{
+  "schema_version": 3,
+  "version": "2.0.0",
+  "id": "momo",
+  "display_name": "Momo",
+  "canvas_size": [128, 128],
+  "default_scale": 1.0,
+  "license": "CC-BY-4.0",
+  "attribution": {
+    "author": "VLA Pet project with OpenAI image generation",
+    "source": "Original project-bound Momo v2 atlas generated 2026-07-19",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "ui": {"accent": "#B9362E"},
+  "sound_attribution": {
+    "momo_pop.wav": "Original synthesized 740 Hz soft interaction chime, VLA Pet project, CC0-1.0"
+  },
+  "persona": {
+    "name": "Momo",
+    "system_prompt": "You are Momo, a warm, playful, observant tiny desktop companion. Answer directly in one or two concise sentences, never repeat phrases, and only describe an action or observation supplied by the runtime.",
+    "greeting": "Hi! I'm Momo. Ctrl-click me whenever you want to chat.",
+    "traits": ["warm", "playful", "concise", "respectful"]
+  },
+  "voice": {"provider": "qt-speechd", "voice_id": "", "rate": 0.05, "pitch": 0.1},
+  "hitbox": {"padding": 64, "alpha_threshold": 8},
+  "emotion_map": {
+    "content": "idle", "happy": "happy", "excited": "jump",
+    "sad": "sad", "sleepy": "sleep", "curious": "think"
+  },
+  "animations": {
+    "idle": {"frames": ["frames/frame_00.png", "frames/frame_01.png"], "fps": 2, "loop": true, "priority": 0},
+    "walk": {"frames": ["frames/frame_02.png", "frames/frame_03.png"], "fps": 7, "loop": true, "priority": 1},
+    "jump": {"frames": ["frames/frame_04.png"], "fps": 8, "loop": true, "priority": 3},
+    "throw": {"frames": ["frames/frame_10.png", "frames/frame_11.png"], "fps": 6, "loop": false, "priority": 3},
+    "happy": {"frames": ["frames/frame_09.png", "frames/frame_15.png"], "fps": 5, "loop": false, "priority": 2},
+    "sad": {"frames": ["frames/frame_05.png"], "fps": 3, "loop": false, "priority": 2},
+    "fall": {"frames": ["frames/frame_05.png"], "fps": 8, "loop": true, "priority": 3},
+    "held": {"frames": ["frames/frame_06.png"], "fps": 4, "loop": true, "priority": 4},
+    "landing": {"frames": ["frames/frame_07.png"], "fps": 6, "loop": false, "priority": 3},
+    "eat": {"frames": ["frames/frame_08.png", "frames/frame_09.png"], "fps": 5, "loop": false, "priority": 3},
+    "play": {"frames": ["frames/frame_10.png", "frames/frame_11.png"], "fps": 7, "loop": true, "priority": 2},
+    "sleep": {"frames": ["frames/frame_12.png"], "fps": 2, "loop": true, "priority": 2},
+    "box": {"frames": ["frames/frame_13.png"], "fps": 3, "loop": true, "priority": 2},
+    "think": {"frames": ["frames/frame_14.png"], "fps": 3, "loop": true, "priority": 1},
+    "listen": {"frames": ["frames/frame_00.png", "frames/frame_14.png"], "fps": 3, "loop": true, "priority": 2},
+    "talk": {"frames": ["frames/frame_15.png", "frames/frame_09.png"], "fps": 5, "loop": true, "priority": 2}
+  }
+}

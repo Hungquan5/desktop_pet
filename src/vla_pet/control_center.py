@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from vla_pet.habitat import HabitatState
 from vla_pet.memory import MemoryManager
 from vla_pet.minigame import ReactionGameDialog
 from vla_pet.permissions import Capability, PermissionLifetime
@@ -30,6 +31,7 @@ from vla_pet.plugins import PluginHost
 from vla_pet.progression import ProgressionEngine
 from vla_pet.settings import CompanionSettings
 from vla_pet.state import PetRuntimeState
+from vla_pet.theme import apply_companion_theme
 
 
 class CompanionControlCenter(QDialog):
@@ -44,6 +46,7 @@ class CompanionControlCenter(QDialog):
         memory: MemoryManager | None,
         plugins: PluginHost | None,
         state: PetRuntimeState | None = None,
+        habitat: HabitatState | None = None,
     ) -> None:
         super().__init__(None, Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.settings = settings
@@ -51,6 +54,7 @@ class CompanionControlCenter(QDialog):
         self.memory = memory
         self.plugins = plugins
         self.state = state
+        self.habitat = habitat
         self.progression = ProgressionEngine()
         self.game: ReactionGameDialog | None = None
         self.setWindowTitle("Momo companion controls")
@@ -68,6 +72,7 @@ class CompanionControlCenter(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
         layout.addWidget(close)
+        apply_companion_theme(self)
 
     def _general_tab(self) -> QWidget:
         page = QWidget()
@@ -303,16 +308,14 @@ class CompanionControlCenter(QDialog):
             return
         if self.progression.use_item(self.state, name):
             self.progression.award(self.state, 3, reason="item")
-            if self.repository:
-                self.repository.save_state(self.state)
+            self._save_progress()
             self.activity_event.emit("item.used", {"item": name})
         self.refresh_progression()
 
     def _daily(self) -> None:
         if self.state is not None:
             self.progression.daily_check_in(self.state)
-            if self.repository:
-                self.repository.save_state(self.state)
+            self._save_progress()
             self.activity_event.emit("daily.completed", {})
             self.refresh_progression()
 
@@ -324,9 +327,16 @@ class CompanionControlCenter(QDialog):
     def _game_finished(self, score: int) -> None:
         if self.state is not None:
             self.progression.award(self.state, max(1, score * 2), reason="minigame")
-            if self.repository:
-                self.repository.save_state(self.state)
+            self._save_progress()
             self.refresh_progression()
+
+    def _save_progress(self) -> None:
+        if self.repository is None or self.state is None:
+            return
+        if self.habitat is not None:
+            self.repository.save_companion_state(self.state, self.habitat)
+        else:
+            self.repository.save_state(self.state)
 
     def refresh_memory(self) -> None:
         self.memory_list.clear()

@@ -11,10 +11,11 @@ from typing import Any
 from uuid import uuid4
 
 from vla_pet.errors import ErrorCategory, PetError
+from vla_pet.habitat import HabitatState
 from vla_pet.paths import ensure_private_directory
 from vla_pet.state import PetRuntimeState
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class StateRepository(AbstractContextManager["StateRepository"]):
@@ -151,6 +152,19 @@ class StateRepository(AbstractContextManager["StateRepository"]):
                     PRAGMA user_version = 2;
                     """
                 )
+            version = 2
+        if version == 2:
+            with self._db:
+                self._db.executescript(
+                    """
+                    CREATE TABLE habitat_state (
+                        singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+                        value_json TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );
+                    PRAGMA user_version = 3;
+                    """
+                )
 
     @staticmethod
     def _now() -> str:
@@ -180,6 +194,24 @@ class StateRepository(AbstractContextManager["StateRepository"]):
                 (json.dumps(state.snapshot(), ensure_ascii=False), self._now()),
             )
 
+    def save_habitat(self, habitat: HabitatState) -> None:
+        self._require_writable()
+        with self._db:
+            self._upsert_habitat(habitat)
+
+    def save_companion_state(self, state: PetRuntimeState, habitat: HabitatState) -> None:
+        """Persist pet progression and its habitat in one transaction."""
+        self._require_writable()
+        now = self._now()
+        with self._db:
+            self._db.execute(
+                """INSERT INTO pet_state(singleton_id, value_json, updated_at) VALUES (1, ?, ?)
+                   ON CONFLICT(singleton_id) DO UPDATE SET value_json=excluded.value_json,
+                   updated_at=excluded.updated_at""",
+                (json.dumps(state.snapshot(), ensure_ascii=False), now),
+            )
+            self._upsert_habitat(habitat, now=now)
+
     def load_state(self) -> PetRuntimeState:
         row = self._db.execute("SELECT value_json FROM pet_state WHERE singleton_id = 1").fetchone()
         if row is None:
@@ -188,6 +220,17 @@ class StateRepository(AbstractContextManager["StateRepository"]):
             return PetRuntimeState.from_snapshot(json.loads(row[0]))
         except (TypeError, ValueError, json.JSONDecodeError):
             return PetRuntimeState()
+
+    def load_habitat(self) -> HabitatState:
+        row = self._db.execute(
+            "SELECT value_json FROM habitat_state WHERE singleton_id = 1"
+        ).fetchone()
+        if row is None:
+            return HabitatState()
+        try:
+            return HabitatState.from_snapshot(json.loads(row[0]))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return HabitatState()
 
     def append_conversation(self, role: str, text: str) -> None:
         self._require_writable()
@@ -464,6 +507,7 @@ class StateRepository(AbstractContextManager["StateRepository"]):
         self._require_writable()
         with self._db:
             self._db.execute("DELETE FROM pet_state")
+            self._db.execute("DELETE FROM habitat_state")
 
     def record_event(
         self,
@@ -504,6 +548,9 @@ class StateRepository(AbstractContextManager["StateRepository"]):
             "schema_version": SCHEMA_VERSION,
             "settings": [dict(row) for row in self._db.execute("SELECT * FROM settings")],
             "pet_state": [dict(row) for row in self._db.execute("SELECT * FROM pet_state")],
+            "habitat_state": [
+                dict(row) for row in self._db.execute("SELECT * FROM habitat_state")
+            ],
             "conversation_turns": [
                 dict(row) for row in self._db.execute("SELECT * FROM conversation_turns")
             ],
@@ -590,6 +637,15 @@ class StateRepository(AbstractContextManager["StateRepository"]):
         for candidate in (self.path, Path(f"{self.path}-wal"), Path(f"{self.path}-shm")):
             if candidate.exists():
                 candidate.chmod(0o600)
+
+    def _upsert_habitat(self, habitat: HabitatState, *, now: str | None = None) -> None:
+        habitat.normalize()
+        self._db.execute(
+            """INSERT INTO habitat_state(singleton_id, value_json, updated_at) VALUES (1, ?, ?)
+               ON CONFLICT(singleton_id) DO UPDATE SET value_json=excluded.value_json,
+               updated_at=excluded.updated_at""",
+            (json.dumps(habitat.snapshot(), ensure_ascii=False), now or self._now()),
+        )
 
     def _require_writable(self) -> None:
         if self.read_only:

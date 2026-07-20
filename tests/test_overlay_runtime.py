@@ -137,3 +137,46 @@ def test_overlay_left_drag_drop_and_ctrl_click_remain_interactive(monkeypatch) -
     assert bounds.width() >= sprite.width() + 2 * overlay.config.interaction_padding
     overlay.shutdown()
     overlay.close()
+
+
+def test_overlay_habitat_is_masked_draggable_and_uses_only_synthetic_pixels(monkeypatch) -> None:
+    overlay = build_overlay(monkeypatch)
+    monkeypatch.setattr(
+        overlay.screen_capture,
+        "request",
+        lambda: (_ for _ in ()).throw(AssertionError("desktop capture must not run")),
+    )
+    observation = overlay._build_habitat_observation()
+    assert observation.image.shape == (3, 256, 256)
+    habitat = overlay._habitat_rect()
+    assert habitat.width() == 420 and habitat.height() == 190
+    assert overlay._interaction_region().contains(habitat.center())
+
+    ball = overlay._habitat_object_rect("ball")
+    geometry = overlay.geometry()
+    press = MouseEventStub(
+        Qt.MouseButton.LeftButton,
+        geometry.x() + ball.center().x(),
+        geometry.y() + ball.center().y(),
+    )
+    overlay._interaction_mouse_press(press)  # type: ignore[arg-type]
+    assert press.accepted and overlay._drag_object_id == "ball"
+    move = MouseEventStub(
+        Qt.MouseButton.NoButton,
+        geometry.x() + ball.center().x() - 60,
+        geometry.y() + ball.center().y() - 45,
+        buttons=Qt.MouseButton.LeftButton,
+    )
+    overlay._interaction_mouse_move(move)  # type: ignore[arg-type]
+    release = MouseEventStub(
+        Qt.MouseButton.LeftButton,
+        geometry.x() + ball.center().x() - 60,
+        geometry.y() + ball.center().y() - 45,
+    )
+    overlay._interaction_mouse_release(release)  # type: ignore[arg-type]
+    assert release.accepted and not overlay._drag_object_id
+    assert overlay.habitat_controller.object("ball").status.value == "airborne"
+    overlay._set_habitat_collapsed(True)
+    assert overlay._habitat_rect().size().width() == 44
+    overlay.shutdown()
+    overlay.close()

@@ -18,6 +18,8 @@ REQUIRED_SUFFIXES = {
     "vla_pet/events.py",
     "vla_pet/permissions.py",
     "vla_pet/persistence.py",
+    "vla_pet/habitat.py",
+    "vla_pet/companion_panel.py",
     "vla_pet/platform_adapters.py",
     "vla_pet/memory.py",
     "vla_pet/tool_runtime.py",
@@ -28,12 +30,17 @@ REQUIRED_SUFFIXES = {
     "vla_pet/update_service.py",
     "vla_pet/updater.py",
     "share/vla-pet/animations/character.json",
+    "share/vla-pet/animations/PROVENANCE.md",
+    "share/vla-pet/animations/frames/frame_00.png",
+    "share/vla-pet/animations/frames/frame_15.png",
+    "share/vla-pet/sounds/momo_pop.wav",
     "share/vla-pet/characters/orbit/character.json",
     "share/vla-pet/plugins/focus-helper/plugin.json",
     "share/vla-pet/plugins/companion-care/plugin.json",
     "share/applications/vla-pet.desktop",
     "share/doc/vla-pet/plugin-spec-v1.md",
     "share/doc/vla-pet/character-pack-spec-v2.md",
+    "share/doc/vla-pet/character-pack-spec-v3.md",
 }
 
 
@@ -76,7 +83,7 @@ def main() -> int:
             text=True,
             env=environment,
         )
-        if "1.0.0" not in result.stdout:
+        if "1.1.0" not in result.stdout:
             raise SystemExit(f"Unexpected installed version: {result.stdout.strip()}")
 
     print(f"Verified release artifact: {artifact.name}")

@@ -40,8 +40,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seconds", type=float, default=300.0)
     parser.add_argument("--max-cpu-percent", type=float, default=3.0)
+    parser.add_argument("--warmup-seconds", type=float, default=10.0)
+    parser.add_argument(
+        "--habitat-mode",
+        choices=("expanded", "collapsed", "off"),
+        default="expanded",
+    )
     args = parser.parse_args()
     seconds = max(5.0, args.seconds)
+    warmup = max(0.0, args.warmup_seconds)
 
     with tempfile.TemporaryDirectory(prefix="vla-pet-cpu-") as temporary:
         environment = os.environ.copy()
@@ -67,7 +74,9 @@ def main() -> int:
             "--screen-index",
             "98",
             "--max-seconds",
-            str(seconds),
+            str(seconds + warmup),
+            "--habitat-mode",
+            args.habitat_mode,
             "--no-log",
         ]
         started = time.monotonic()
@@ -80,15 +89,19 @@ def main() -> int:
         )
         baseline: dict[int, int] = {}
         latest: dict[int, int] = {}
+        sampling_started: float | None = None
         while process.poll() is None:
-            for pid in descendants(process.pid):
-                ticks = process_ticks(pid)
-                if ticks is None:
-                    continue
-                baseline.setdefault(pid, ticks)
-                latest[pid] = ticks
+            now = time.monotonic()
+            if now - started >= warmup:
+                sampling_started = sampling_started or now
+                for pid in descendants(process.pid):
+                    ticks = process_ticks(pid)
+                    if ticks is None:
+                        continue
+                    baseline.setdefault(pid, ticks)
+                    latest[pid] = ticks
             time.sleep(0.25)
-        elapsed = time.monotonic() - started
+        elapsed = time.monotonic() - (sampling_started or started)
         if process.returncode != 0:
             raise SystemExit(f"Headless pet exited with status {process.returncode}")
 
@@ -97,7 +110,8 @@ def main() -> int:
     cpu_percent = (cpu_seconds / elapsed) * 100.0
     print(
         f"idle_cpu_percent={cpu_percent:.2f} cpu_seconds={cpu_seconds:.2f} "
-        f"wall_seconds={elapsed:.2f} processes={len(baseline)}"
+        f"wall_seconds={elapsed:.2f} processes={len(baseline)} "
+        f"habitat={args.habitat_mode} warmup_seconds={warmup:.1f}"
     )
     if cpu_percent > args.max_cpu_percent:
         raise SystemExit(

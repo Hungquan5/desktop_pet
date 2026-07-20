@@ -213,11 +213,14 @@ def test_sleep_recovers_energy_and_eventually_unsticks_idle_state() -> None:
 
 def test_character_manifest_and_animation_controller_load_builtin_pack() -> None:
     pack = CharacterPack.load(default_character_directory())
-    assert pack.schema_version == 2
+    assert pack.schema_version == 3
     assert pack.character_id == "momo"
     assert pack.persona.name == "Momo"
     assert pack.voice.provider == "qt-speechd"
     assert len(pack.animations) == 6
+    assert {"held", "eat", "play", "sleep", "box", "think", "listen", "talk"} <= set(
+        pack.expressive_animations
+    )
     controller = AnimationController(pack)
     frame = Path(controller.frame(0.5))
     assert frame.is_file()

@@ -15,7 +15,7 @@ modules:
   - name: vla-pet
     buildsystem: simple
     build-commands:
-      - python3 -m pip install --prefix=/app --no-deps smolvla_pet_sandbox-1.0.0-py3-none-any.whl
+      - python3 -m pip install --prefix=/app --no-deps smolvla_pet_sandbox-1.1.0-py3-none-any.whl
     sources:
       - type: file
-        path: ../../dist/smolvla_pet_sandbox-1.0.0-py3-none-any.whl
+        path: ../../dist/smolvla_pet_sandbox-1.1.0-py3-none-any.whl

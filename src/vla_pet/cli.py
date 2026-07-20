@@ -20,7 +20,7 @@ def _update_source_url(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the SmolVLM + SmolLM anime desktop pet")
-    parser.add_argument("--version", action="version", version="vla-pet 1.0.0")
+    parser.add_argument("--version", action="version", version="vla-pet 1.1.0")
     parser.add_argument("--mock-policy", action="store_true", help="use deterministic actions and template narration")
     parser.add_argument(
         "--safe-mode",
@@ -85,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=64,
         help="extra clickable padding around the desktop pet in pixels",
+    )
+    parser.add_argument(
+        "--habitat-mode",
+        choices=("expanded", "collapsed", "off"),
+        default="",
+        help="override the saved habitat visibility for this session",
     )
     parser.add_argument("--headless", action="store_true", help="run with SDL's dummy video driver")
     parser.add_argument("--max-seconds", type=float, help="stop automatically; useful for smoke tests")
@@ -338,5 +344,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.stt_command
             else ()
         ),
+        habitat_mode=args.habitat_mode,
     )
     return run_overlay(overlay)

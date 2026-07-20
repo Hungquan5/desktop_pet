@@ -12,10 +12,13 @@ from vla_pet.contracts import (
     SandboxObservation,
     VisualQuestion,
 )
+from vla_pet.habitat import HabitatObservation
 
 
 class ActionProvider(Protocol):
     def decide(self, observation: SandboxObservation) -> PetAction: ...
+
+    def choose_habitat(self, observation: HabitatObservation): ...
 
 
 class LanguageProvider(Protocol):

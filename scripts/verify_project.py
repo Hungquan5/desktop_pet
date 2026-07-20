@@ -71,7 +71,7 @@ def main() -> int:
     run("build", [python, "-m", "build", "--no-isolation"])
     run(
         "wheel contents and isolated import",
-        [python, "scripts/verify_release.py", "--artifact", "dist/*-1.0.0-*.whl"],
+        [python, "scripts/verify_release.py", "--artifact", "dist/*-1.1.0-*.whl"],
     )
     run("10k memory retrieval budget", [python, "scripts/measure_memory.py"])
     run("cross-platform packaging contracts", [python, "scripts/verify_packaging.py"])
@@ -128,9 +128,9 @@ def main() -> int:
             [python, "-m", "vla_pet", "--restore-data", str(backup)],
             environment=environment,
         )
-        wheels = tuple((ROOT / "dist").glob("*-1.0.0-*.whl"))
+        wheels = tuple((ROOT / "dist").glob("*-1.1.0-*.whl"))
         if len(wheels) != 1:
-            raise SystemExit(f"Expected one v1.0.0 wheel, found {len(wheels)}")
+            raise SystemExit(f"Expected one v1.1.0 wheel, found {len(wheels)}")
         wheel = wheels[0]
         run(
             "temporary-prefix install",
@@ -194,8 +194,30 @@ def main() -> int:
 
     if args.with_performance:
         run(
-            "five-minute idle CPU gate",
-            [python, "scripts/measure_idle_cpu.py", "--seconds", "300", "--max-cpu-percent", "3"],
+            "five-minute expanded-habitat CPU gate",
+            [
+                python,
+                "scripts/measure_idle_cpu.py",
+                "--seconds",
+                "300",
+                "--habitat-mode",
+                "expanded",
+                "--max-cpu-percent",
+                "5",
+            ],
+        )
+        run(
+            "five-minute collapsed-habitat CPU gate",
+            [
+                python,
+                "scripts/measure_idle_cpu.py",
+                "--seconds",
+                "300",
+                "--habitat-mode",
+                "collapsed",
+                "--max-cpu-percent",
+                "3",
+            ],
         )
 
     if args.with_voice_model:
@@ -209,7 +231,7 @@ def main() -> int:
         )
         run("cached local Whisper smoke", [python, "scripts/smoke_voice.py"], environment=environment)
 
-    print("[verify] all selected v1.0 gates passed", flush=True)
+    print("[verify] all selected v1.1 gates passed", flush=True)
     return 0
 
 

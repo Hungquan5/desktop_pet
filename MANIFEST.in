@@ -1,0 +1,8 @@
+exclude animations/character.json
+exclude animations/happy.png
+exclude animations/idle.png
+exclude animations/jumping.png
+exclude animations/sad.png
+exclude animations/throw.png
+exclude animations/walking.png
+prune animations/momo_v2/source
