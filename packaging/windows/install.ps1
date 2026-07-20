@@ -10,11 +10,12 @@ $ErrorActionPreference = "Stop"
 $Releases = Join-Path $Prefix "releases"
 $Current = Join-Path $Prefix "current.txt"
 $Previous = Join-Path $Prefix "previous.txt"
-$Launcher = Join-Path $Prefix "vla-pet.cmd"
+$Launcher = Join-Path $Prefix "momo-chan.cmd"
+$CompatibilityLauncher = Join-Path $Prefix "vla-pet.cmd"
 
 if ($Uninstall) {
     Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue
-    Write-Host "Uninstalled vla-pet. User data in AppData is preserved."
+    Write-Host "Uninstalled momo-chan. User data in AppData is preserved."
     exit 0
 }
 
@@ -25,7 +26,7 @@ if ($Rollback) {
     Set-Content -NoNewline -Path "$Current.tmp" -Value $OldPrevious
     Move-Item -Force "$Current.tmp" $Current
     if ($OldCurrent) { Set-Content -NoNewline -Path $Previous -Value $OldCurrent }
-    Write-Host "Rolled back vla-pet."
+    Write-Host "Rolled back momo-chan."
     exit 0
 }
 
@@ -45,9 +46,11 @@ if ($LASTEXITCODE -ne 0) { Remove-Item -Recurse -Force $Release; throw "Package 
 if (Test-Path $Current) { Copy-Item -Force $Current $Previous }
 Set-Content -NoNewline -Path "$Current.tmp" -Value $Release
 Move-Item -Force "$Current.tmp" $Current
-@"
+$LauncherBody = @"
 @echo off
 set /p VLA_PET_RELEASE=<"$Current"
-"%VLA_PET_RELEASE%\Scripts\vla-pet.exe" %*
-"@ | Set-Content -Path $Launcher -Encoding ASCII
-Write-Host "Installed vla-pet into $Prefix"
+"%VLA_PET_RELEASE%\Scripts\momo-chan.exe" %*
+"@
+$LauncherBody | Set-Content -Path $Launcher -Encoding ASCII
+$LauncherBody | Set-Content -Path $CompatibilityLauncher -Encoding ASCII
+Write-Host "Installed momo-chan into $Prefix"

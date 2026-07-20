@@ -33,6 +33,10 @@ def main() -> int:
         raise SystemExit("SmolVLM's torchvision runtime is not CPU-pinned")
     if "org.freedesktop.portal.Desktop" not in flatpak or "--socket=wayland" not in flatpak:
         raise SystemExit("Flatpak manifest lacks Wayland/portal integration")
+    appimage = (ROOT / REQUIRED[4]).read_text(encoding="utf-8")
+    desktop = (ROOT / REQUIRED[0]).read_text(encoding="utf-8")
+    if any("momo-chan" not in contract for contract in (windows, macos, linux, flatpak, appimage, desktop)):
+        raise SystemExit("A packaging contract does not expose the momo-chan command")
     print("Validated Linux, Windows, and macOS packaging contracts")
     return 0
 

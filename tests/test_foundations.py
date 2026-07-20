@@ -390,6 +390,6 @@ def test_diagnostics_reports_redacted_environment_health(tmp_path: Path) -> None
         state=tmp_path / "state",
     ).ensure()
     report = collect_diagnostics(paths, default_character_directory())
-    assert report["application"] == "vla-pet"
+    assert report["application"] == "momo-chan"
     assert report["checks"]["character_pack"] == {"ok": True, "id": "momo"}
     assert report["ok"]

@@ -1,7 +1,7 @@
 # Character pack specification v2
 
 A character pack is a directory containing `character.json` and all referenced
-assets. Load it with `vla-pet --assets PATH`. No Python change is required.
+assets. Load it with `momo-chan --assets PATH`. No Python change is required.
 
 Required top-level fields are `schema_version: 2`, a safe alphanumeric/hyphen
 `id`, `display_name`, positive two-value `canvas_size`, `license`, `animations`,

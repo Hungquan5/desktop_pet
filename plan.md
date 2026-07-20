@@ -61,7 +61,7 @@ package/install
 | E2E-006 | Mood, energy, social need, boredom, and high-level behavior evolve deterministically and persist across restart. | Fake-clock unit tests and SQLite restart test. |
 | E2E-007 | Conversation metadata, user preferences, pet state, and meaningful events persist in SQLite without placing raw chat or screenshots in production logs. | Migration, redaction, retention, export, and delete tests. |
 | E2E-008 | Screenshot and notification access are disabled by default and enforced by a capability policy before platform access. | Permission unit/integration tests; denied access never calls the sensor. |
-| E2E-009 | Failures have stable categories, visible fallback behavior, redacted logs, and a diagnostics command. | Fault-injection tests and `vla-pet --diagnostics`. |
+| E2E-009 | Failures have stable categories, visible fallback behavior, redacted logs, and a diagnostics command. | Fault-injection tests and `momo-chan --diagnostics`. |
 | E2E-010 | A Linux wheel plus desktop integration installer can install, launch, autostart optionally, and uninstall without deleting user data unless requested. | Build/install smoke test in a temporary prefix. |
 | E2E-011 | CI runs lint, compilation checks, unit/integration tests, coverage, package build, and headless launch without downloading models. | GitHub Actions workflow passes from a clean checkout. |
 | E2E-012 | The real cached CPU models can chat, answer a user-authorized screen question, and turn a confirmed language request into a safe visual action. | Offline model smoke and live overlay checklist. |
@@ -196,7 +196,7 @@ python -m ruff check src tests scripts
 python -m compileall -q src scripts
 python -m build --no-isolation
 python scripts/verify_release.py --artifact dist/*.whl
-vla-pet --mock-policy --headless --max-seconds 3 --no-log
+momo-chan --mock-policy --headless --max-seconds 3 --no-log
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python scripts/smoke_coop.py
 ```
 

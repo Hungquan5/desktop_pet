@@ -41,7 +41,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: vla-pet --safe-mode --headless --screen-index 99 --max-seconds 3 --no-log
+        run: momo-chan --safe-mode --headless --screen-index 99 --max-seconds 3 --no-log
 
   package-linux:
     runs-on: ubuntu-24.04

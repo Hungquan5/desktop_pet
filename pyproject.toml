@@ -34,6 +34,8 @@ dev = [
 ]
 
 [project.scripts]
+momo-chan = "vla_pet.cli:main"
+# Compatibility alias for existing installs and automation.
 vla-pet = "vla_pet.cli:main"
 
 [tool.setuptools.packages.find]

@@ -83,7 +83,8 @@ def main() -> int:
     backup_root = prefix / "lib" / "vla-pet.previous"
     release_parent = prefix / "lib" / "vla-pet-releases"
     environment_root = install_root / "venv"
-    executable = prefix / "bin" / "vla-pet"
+    executable = prefix / "bin" / "momo-chan"
+    compatibility_executable = prefix / "bin" / "vla-pet"
     desktop_path = prefix / "share" / "applications" / "vla-pet.desktop"
     autostart_path = (
         Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
@@ -96,6 +97,7 @@ def main() -> int:
         remove_install_pointer(backup_root, release_parent)
         shutil.rmtree(release_parent, ignore_errors=True)
         executable.unlink(missing_ok=True)
+        compatibility_executable.unlink(missing_ok=True)
         desktop_path.unlink(missing_ok=True)
         autostart_path.unlink(missing_ok=True)
         if args.delete_data:
@@ -104,7 +106,11 @@ def main() -> int:
             paths = AppPaths.discover()
             for directory in (paths.config, paths.data, paths.cache, paths.state):
                 shutil.rmtree(directory, ignore_errors=True)
-        print("Uninstalled vla-pet. User data was preserved." if not args.delete_data else "Uninstalled vla-pet and deleted its user data.")
+        print(
+            "Uninstalled momo-chan. User data was preserved."
+            if not args.delete_data
+            else "Uninstalled momo-chan and deleted its user data."
+        )
         return 0
 
     if args.rollback:
@@ -122,7 +128,7 @@ def main() -> int:
             if not path_present(install_root) and path_present(swap_root):
                 swap_root.rename(install_root)
             raise
-        print("Rolled back vla-pet to the previous successful installation.")
+        print("Rolled back momo-chan to the previous successful installation.")
         return 0
 
     if args.wheel is None or not args.wheel.is_file():
@@ -176,11 +182,21 @@ def main() -> int:
             backup_root.rename(install_root)
         raise
     executable.parent.mkdir(parents=True, exist_ok=True)
+    primary_target = environment_root / "bin" / "momo-chan"
+    legacy_target = environment_root / "bin" / "vla-pet"
     executable.write_text(
-        f'#!/bin/sh\nexec "{environment_root / "bin" / "vla-pet"}" "$@"\n',
+        "#!/bin/sh\n"
+        f'target="{primary_target}"\n'
+        f'[ -x "$target" ] || target="{legacy_target}"\n'
+        'exec "$target" "$@"\n',
         encoding="utf-8",
     )
     executable.chmod(0o755)
+    compatibility_executable.write_text(
+        f'#!/bin/sh\nexec "{executable}" "$@"\n',
+        encoding="utf-8",
+    )
+    compatibility_executable.chmod(0o755)
     icon = environment_root / "share" / "icons" / "hicolor" / "128x128" / "apps" / "happy.png"
     desktop_path.parent.mkdir(parents=True, exist_ok=True)
     desktop = DESKTOP_ENTRY.format(
@@ -195,7 +211,7 @@ def main() -> int:
     else:
         autostart_path.unlink(missing_ok=True)
     clean_orphan_releases(release_parent, (install_root, backup_root))
-    print(f"Installed vla-pet into {prefix}")
+    print(f"Installed momo-chan into {prefix}")
     return 0
 
 

@@ -2,6 +2,7 @@
 
 ## 1.1.0 - 2026-07-19
 
+- Renamed the public command to `momo-chan`; `vla-pet` remains a compatibility alias.
 - Added a cozy edge-anchored desktop habitat with collapse, bottom-edge movement,
   click-through-aware masking, and deterministic cushion/snack/ball/box physics.
 - Added a unified Home, Chat, Play, and Settings panel, quick pet actions,

@@ -147,6 +147,11 @@ def main() -> int:
         )
         run(
             "installed launcher",
+            [str(prefix / "bin" / "momo-chan"), "--version"],
+            environment=environment,
+        )
+        run(
+            "compatibility launcher",
             [str(prefix / "bin" / "vla-pet"), "--version"],
             environment=environment,
         )
@@ -170,7 +175,7 @@ def main() -> int:
         )
         run(
             "rolled-back launcher",
-            [str(prefix / "bin" / "vla-pet"), "--version"],
+            [str(prefix / "bin" / "momo-chan"), "--version"],
             environment=environment,
         )
         run(
@@ -178,8 +183,13 @@ def main() -> int:
             [python, "scripts/install_linux.py", "--prefix", str(prefix), "--uninstall"],
             environment=environment,
         )
-        if (prefix / "bin" / "vla-pet").exists():
-            raise SystemExit("Uninstall left the launcher behind")
+        leftover_launchers = [
+            launcher
+            for launcher in (prefix / "bin" / "momo-chan", prefix / "bin" / "vla-pet")
+            if launcher.exists()
+        ]
+        if leftover_launchers:
+            raise SystemExit(f"Uninstall left launchers behind: {leftover_launchers}")
 
     if args.with_models:
         environment = os.environ.copy()

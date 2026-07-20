@@ -21,7 +21,7 @@ current="${prefix}/current"
 previous="${prefix}/previous"
 if [ "$mode" = "uninstall" ]; then
   rm -rf "$prefix"
-  echo "Uninstalled vla-pet; Library/Application Support data was preserved."
+  echo "Uninstalled momo-chan; Library/Application Support data was preserved."
   exit 0
 fi
 if [ "$mode" = "rollback" ]; then
@@ -31,7 +31,7 @@ if [ "$mode" = "rollback" ]; then
   ln -sfn "$old_previous" "${current}.tmp"
   mv -f "${current}.tmp" "$current"
   ln -sfn "$old_current" "$previous"
-  echo "Rolled back vla-pet."
+  echo "Rolled back momo-chan."
   exit 0
 fi
 [ -f "$wheel" ] || { echo "--wheel must name an existing wheel" >&2; exit 2; }
@@ -45,6 +45,7 @@ if [ -L "$current" ]; then ln -sfn "$(readlink "$current")" "$previous"; fi
 ln -s "$release" "${current}.tmp"
 mv -f "${current}.tmp" "$current"
 mkdir -p "${prefix}/VlaPet.app/Contents/MacOS"
-printf '%s\n' '#!/bin/sh' 'exec "'"${current}"'/bin/vla-pet" "$@"' > "${prefix}/VlaPet.app/Contents/MacOS/vla-pet"
-chmod 755 "${prefix}/VlaPet.app/Contents/MacOS/vla-pet"
+printf '%s\n' '#!/bin/sh' 'exec "'"${current}"'/bin/momo-chan" "$@"' > "${prefix}/VlaPet.app/Contents/MacOS/momo-chan"
+cp "${prefix}/VlaPet.app/Contents/MacOS/momo-chan" "${prefix}/VlaPet.app/Contents/MacOS/vla-pet"
+chmod 755 "${prefix}/VlaPet.app/Contents/MacOS/momo-chan" "${prefix}/VlaPet.app/Contents/MacOS/vla-pet"
 echo "Installed unsigned developer app into $prefix; public releases require Developer ID signing and notarization."

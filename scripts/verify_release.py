@@ -1,4 +1,4 @@
-"""Deterministically inspect and import a built vla-pet wheel."""
+"""Deterministically inspect and import a built Momo Chan wheel."""
 
 from __future__ import annotations
 
@@ -61,11 +61,24 @@ def main() -> int:
 
     with zipfile.ZipFile(artifact) as wheel:
         names = set(wheel.namelist())
+        entry_point_files = [
+            name for name in names if name.endswith(".dist-info/entry_points.txt")
+        ]
+        if len(entry_point_files) != 1:
+            raise SystemExit("Wheel must contain exactly one entry_points.txt")
+        entry_points = wheel.read(entry_point_files[0]).decode("utf-8")
     missing = sorted(
         suffix for suffix in REQUIRED_SUFFIXES if not any(name.endswith(suffix) for name in names)
     )
     if missing:
         raise SystemExit(f"Wheel is missing required content: {', '.join(missing)}")
+    expected_commands = {
+        "momo-chan = vla_pet.cli:main",
+        "vla-pet = vla_pet.cli:main",
+    }
+    missing_commands = sorted(command for command in expected_commands if command not in entry_points)
+    if missing_commands:
+        raise SystemExit(f"Wheel is missing console commands: {', '.join(missing_commands)}")
 
     with tempfile.TemporaryDirectory(prefix="vla-pet-wheel-") as temporary:
         target = Path(temporary) / "site"

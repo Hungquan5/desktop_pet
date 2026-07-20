@@ -22,14 +22,14 @@ Python 3.10–3.12 is supported. Deterministic pet-only mode needs no model file
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-vla-pet --mock-policy
+momo-chan --mock-policy
 ```
 
 For local SmolLM, SmolVLM, and Whisper:
 
 ```bash
 python -m pip install -e ".[models,dev]"
-vla-pet --device cpu
+momo-chan --device cpu
 ```
 
 The first launch explains every optional feature before enabling it. Model
@@ -39,7 +39,7 @@ spawns no AI process, reads no sensors, runs no tools or plugins, and writes no
 persistent state:
 
 ```bash
-vla-pet --safe-mode
+momo-chan --safe-mode
 ```
 
 ## Interact with the pet
@@ -138,14 +138,14 @@ Linux data follows XDG directories. Windows uses roaming/local AppData and macOS
 uses the appropriate `Library` directories. Useful recovery commands:
 
 ```bash
-vla-pet --diagnostics
-vla-pet --export-data ~/vla-pet-export.json
-vla-pet --backup-data ~/vla-pet-backup.db
-vla-pet --restore-data ~/vla-pet-backup.db
-vla-pet --clear-conversations
-vla-pet --reset-pet-state
-vla-pet --reset-onboarding
-vla-pet --delete-all-data
+momo-chan --diagnostics
+momo-chan --export-data ~/momo-chan-export.json
+momo-chan --backup-data ~/momo-chan-backup.db
+momo-chan --restore-data ~/momo-chan-backup.db
+momo-chan --clear-conversations
+momo-chan --reset-pet-state
+momo-chan --reset-onboarding
+momo-chan --delete-all-data
 ```
 
 Automatic release checks are disabled until a user supplies a signed manifest
@@ -155,7 +155,7 @@ stage the signed artifact explicitly; installation remains visible and
 rollback-capable:
 
 ```bash
-vla-pet --check-update update.json \
+momo-chan --check-update update.json \
   --update-public-key release-key.pub \
   --download-update verified.whl
 ```
@@ -187,6 +187,9 @@ Linux GNOME Wayland is the v1.1 live reference platform. Windows and macOS have
 CI/domain and packaging contracts, but no live hardware claim is made here.
 Model weights are not bundled. The older SmolVLA robotics experiment remains
 available through `.[vla]` and `--policy vla`; SmolVLM is the desktop default.
+
+The public command is `momo-chan`. The former `vla-pet` command remains as a
+compatibility alias for existing scripts and installations.
 
 The v1.1 artifact bundles only the provenance-documented Momo v2 pack and the
 original CC0 Orbit sample. Unresolved prototype PNGs remain in source history

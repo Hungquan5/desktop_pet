@@ -76,7 +76,7 @@ def collect_diagnostics(paths: AppPaths, character_directory: Path) -> dict[str,
             packages[package] = None
 
     report = {
-        "application": "vla-pet",
+        "application": "momo-chan",
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "display": {

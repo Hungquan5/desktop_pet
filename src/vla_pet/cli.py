@@ -20,7 +20,7 @@ def _update_source_url(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the SmolVLM + SmolLM anime desktop pet")
-    parser.add_argument("--version", action="version", version="vla-pet 1.1.0")
+    parser.add_argument("--version", action="version", version="momo-chan 1.1.0")
     parser.add_argument("--mock-policy", action="store_true", help="use deterministic actions and template narration")
     parser.add_argument(
         "--safe-mode",
@@ -132,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--delete-all-data",
         action="store_true",
-        help="permanently delete all vla-pet config, data, cache, and logs",
+        help="permanently delete all momo-chan config, data, cache, and logs",
     )
     parser.add_argument("--skip-onboarding", action="store_true", help="do not show first-launch wizard")
     parser.add_argument(
@@ -230,7 +230,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.delete_all_data:
         for directory in (paths.config, paths.data, paths.cache, paths.state):
             shutil.rmtree(directory, ignore_errors=True)
-        print("Deleted all vla-pet user data.")
+        print("Deleted all momo-chan user data.")
         return 0
     if args.restore_data:
         from vla_pet.persistence import StateRepository
