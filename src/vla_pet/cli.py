@@ -20,7 +20,7 @@ def _update_source_url(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the SmolVLM + SmolLM anime desktop pet")
-    parser.add_argument("--version", action="version", version="momo-chan 1.1.0")
+    parser.add_argument("--version", action="version", version="momo-chan 1.2.1")
     parser.add_argument("--mock-policy", action="store_true", help="use deterministic actions and template narration")
     parser.add_argument(
         "--safe-mode",

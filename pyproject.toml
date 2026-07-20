@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smolvla-pet-sandbox"
-version = "1.1.0"
+version = "1.2.1"
 description = "A local-first living desktop companion with SmolVLM and SmolLM"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,30 +43,16 @@ where = ["src"]
 
 [tool.setuptools.data-files]
 "share/vla-pet/animations" = [
-  "animations/momo_v2/character.json",
-  "animations/momo_v2/PROVENANCE.md",
+  "animations/momo_v3/character.json",
+  "animations/momo_v3/PROVENANCE.md",
 ]
-"share/vla-pet/animations/frames" = [
-  "animations/momo_v2/frames/frame_00.png",
-  "animations/momo_v2/frames/frame_01.png",
-  "animations/momo_v2/frames/frame_02.png",
-  "animations/momo_v2/frames/frame_03.png",
-  "animations/momo_v2/frames/frame_04.png",
-  "animations/momo_v2/frames/frame_05.png",
-  "animations/momo_v2/frames/frame_06.png",
-  "animations/momo_v2/frames/frame_07.png",
-  "animations/momo_v2/frames/frame_08.png",
-  "animations/momo_v2/frames/frame_09.png",
-  "animations/momo_v2/frames/frame_10.png",
-  "animations/momo_v2/frames/frame_11.png",
-  "animations/momo_v2/frames/frame_12.png",
-  "animations/momo_v2/frames/frame_13.png",
-  "animations/momo_v2/frames/frame_14.png",
-  "animations/momo_v2/frames/frame_15.png",
-]
+"share/vla-pet/animations/frames/baby" = ["animations/momo_v3/frames/baby/*.png"]
+"share/vla-pet/animations/frames/child" = ["animations/momo_v3/frames/child/*.png"]
+"share/vla-pet/animations/frames/teen" = ["animations/momo_v3/frames/teen/*.png"]
+"share/vla-pet/animations/frames/evolution" = ["animations/momo_v3/frames/evolution/*.png"]
 "share/vla-pet/sounds" = ["assets/sounds/momo_pop.wav"]
 "share/applications" = ["packaging/vla-pet.desktop"]
-"share/icons/hicolor/128x128/apps" = ["animations/momo_v2/frames/frame_09.png"]
+"share/icons/hicolor/128x128/apps" = ["animations/momo_v3/frames/baby/frame_09.png"]
 "share/vla-pet/plugins/focus-helper" = [
   "plugins/focus-helper/plugin.json",
   "plugins/focus-helper/README.md",
@@ -86,6 +72,9 @@ where = ["src"]
   "docs/privacy-model.md",
   "docs/character-pack-spec-v2.md",
   "docs/character-pack-spec-v3.md",
+  "docs/character-pack-spec-v4.md",
+  "docs/feature-audit-v1.2.md",
+  "docs/release-evidence-v1.2.md",
   "docs/plugin-spec-v1.md",
   "docs/tool-permission-spec-v1.md",
   "docs/update-spec-v1.md",

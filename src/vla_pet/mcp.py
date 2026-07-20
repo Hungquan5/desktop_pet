@@ -72,7 +72,7 @@ class MCPStdioClient:
             {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {},
-                "clientInfo": {"name": "vla-pet", "version": "1.1.0"},
+                "clientInfo": {"name": "momo-chan", "version": "1.2.1"},
             },
         )
 

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from vla_pet.growth import stage_definition
 from vla_pet.habitat import HabitatState
 from vla_pet.memory import MemoryManager
 from vla_pet.minigame import ReactionGameDialog
@@ -296,8 +297,11 @@ class CompanionControlCenter(QDialog):
             self.progress_label.setText("Progression is unavailable in safe mode.")
             return
         progress = self.state.progression
+        stage = stage_definition(self.state.growth.stage)
         self.progress_label.setText(
-            f"Level {progress.level} • XP {progress.xp} • affection {progress.affection_points} • "
+            f"{stage.display_name} • Level {progress.level} • XP {progress.xp} • "
+            f"HP {self.state.stats.health} • STA {self.state.stats.stamina} • "
+            f"INT {self.state.stats.intelligence} • affection {progress.affection_points} • "
             f"achievements {len(progress.achievements)}"
         )
         for name, count in sorted(progress.inventory.items()):
@@ -307,16 +311,17 @@ class CompanionControlCenter(QDialog):
         if self.state is None:
             return
         if self.progression.use_item(self.state, name):
-            self.progression.award(self.state, 3, reason="item")
+            self.progression.award(self.state, 3, reason=f"item:{name}")
             self._save_progress()
             self.activity_event.emit("item.used", {"item": name})
         self.refresh_progression()
 
     def _daily(self) -> None:
         if self.state is not None:
-            self.progression.daily_check_in(self.state)
+            result = self.progression.daily_check_in(self.state)
             self._save_progress()
-            self.activity_event.emit("daily.completed", {})
+            if result.xp_awarded:
+                self.activity_event.emit("daily.completed", {})
             self.refresh_progression()
 
     def _open_game(self) -> None:

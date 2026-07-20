@@ -6,9 +6,12 @@ and uses SmolVLM only for bounded pet actions and explicitly authorized screen
 questions. A deterministic life engine keeps the pet animated when every model
 is off, loading, or unavailable.
 
-Version 1.1 adds a cozy bottom-edge habitat, original multi-frame Momo v2 art,
-a unified Home/Chat/Play/Settings panel, quick actions, and tactile cushion,
-snack, ball, and box play. Version 1.0 added private memory, push-to-talk voice, useful permission-gated
+Version 1.2 adds Baby→Child→Teen evolution, persistent HP/STA/INT training,
+original Momo v3 growth sprites, a fixed animation contract, and a dedicated
+Status page. Version 1.2.1 gives Teen Momo a taller, more fashionable design,
+cleans every sprite cut, and fixes walk-facing direction. Version 1.1 added the
+cozy habitat, unified panel, quick actions,
+and tactile cushion, snack, ball, and box play. Version 1.0 added private memory, push-to-talk voice, useful permission-gated
 tools, desktop context, positive-only progression, a mini-game, character and
 plugin manifests, onboarding, signed updates, backup/restore, and deployment
 rollback. SmolLM, SmolVLM, and optional Whisper run sequentially inside one AI
@@ -53,7 +56,7 @@ momo-chan --safe-mode
 - Right-click asks one question about one authorized screen capture.
 - Ctrl+right-click opens settings, privacy, memory, tasks, play, plugins, and
   redacted activity.
-- The tray menu opens Home/chat/settings, toggles privacy mode, or quits.
+- The tray menu opens Home/chat/growth/settings, toggles privacy mode, or quits.
 
 Chat is cancellable and replies appear incrementally. Direct requests such as
 “jump” or “walk left” flow from SmolLM intent to SmolVLM visual action choice,
@@ -109,6 +112,12 @@ milestones, achievements, snacks, toys, and the ten-round Catch the Star game.
 Time away never removes progress. `--sandbox-window` remains the bounded room
 mode.
 
+Momo begins in Baby form, becomes Child Momo at 300 XP, and Teen Momo at 1000
+XP. Rest, snacks, and daily check-ins train HP; ball play and games train STA;
+chat, focus, and box exploration train INT. Stats cap at 99 and never decay.
+Open **Status** in the companion panel to see the next form and training progress,
+or ask Momo “what are your stats?” in chat.
+
 Character packs are source-free data directories selected with `--assets`.
 Schema v2 declares contained animation frames, hitbox, persona, voice, emotion
 mapping, license, and attribution. `characters/orbit` is the included original
@@ -127,6 +136,9 @@ Specifications:
 - [Privacy model](docs/privacy-model.md)
 - [Character pack v2](docs/character-pack-spec-v2.md)
 - [Character pack v3](docs/character-pack-spec-v3.md)
+- [Character pack v4 growth forms](docs/character-pack-spec-v4.md)
+- [v1.2 feature audit](docs/feature-audit-v1.2.md)
+- [v1.2 release evidence](docs/release-evidence-v1.2.md)
 - [Plugin API v1](docs/plugin-spec-v1.md)
 - [Tool and permission API v1](docs/tool-permission-spec-v1.md)
 - [Signed update manifest v1](docs/update-spec-v1.md)
@@ -171,9 +183,9 @@ python scripts/verify_project.py
 python scripts/verify_project.py --with-models --with-voice-model
 python scripts/verify_project.py --with-performance
 python -m build --no-isolation
-python scripts/verify_release.py --artifact "dist/*-1.1.0-*.whl"
+python scripts/verify_release.py --artifact "dist/*-1.2.1-*.whl"
 python scripts/install_linux.py \
-  --wheel dist/smolvla_pet_sandbox-1.1.0-py3-none-any.whl --models
+  --wheel dist/smolvla_pet_sandbox-1.2.1-py3-none-any.whl --models
 python scripts/install_linux.py --rollback
 python scripts/install_linux.py --uninstall
 ```
@@ -183,7 +195,7 @@ The umbrella verifier runs lint, compile, coverage, build/wheel inspection,
 backup/restore, isolated install, upgrade, rollback, and uninstall. Optional
 flags add cached-model, voice-model, and five-minute CPU gates.
 
-Linux GNOME Wayland is the v1.1 live reference platform. Windows and macOS have
+Linux GNOME Wayland is the v1.2 live reference platform. Windows and macOS have
 CI/domain and packaging contracts, but no live hardware claim is made here.
 Model weights are not bundled. The older SmolVLA robotics experiment remains
 available through `.[vla]` and `--policy vla`; SmolVLM is the desktop default.
@@ -191,7 +203,7 @@ available through `.[vla]` and `--policy vla`; SmolVLM is the desktop default.
 The public command is `momo-chan`. The former `vla-pet` command remains as a
 compatibility alias for existing scripts and installations.
 
-The v1.1 artifact bundles only the provenance-documented Momo v2 pack and the
+The v1.2 artifact bundles only the provenance-documented Momo v3 growth pack and the
 original CC0 Orbit sample. Unresolved prototype PNGs remain in source history
 but are explicitly excluded from wheel and source distributions; see
 [ATTRIBUTION.md](ATTRIBUTION.md).

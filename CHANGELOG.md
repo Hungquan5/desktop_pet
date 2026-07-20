@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.1 - 2026-07-20
+
+- Promoted the prior Teen artwork to Child and redesigned Teen Momo with a
+  taller silhouette, a distinct hairstyle, richer clothes, and 18% form scale.
+- Rebuilt every Teen and evolution frame with isolated safe-area crops so no
+  head, prop, or neighboring pose leaks across animation cells.
+- Fixed the walk sprite's native-facing declaration so Momo faces the same
+  direction as horizontal movement.
+
+## 1.2.0 - 2026-07-20
+
+- Added positive-only Baby, Child, and Teen evolution at fixed XP milestones.
+- Added persistent HP, STA, and INT training specialized by rest, play, chat,
+  focus, exploration, daily check-ins, and mini-games.
+- Added the schema-v4 fixed 17-role animation contract and original Momo v3
+  Child, Teen, and evolution sprite sets.
+- Added a live Status page with form progress, RPG stats, training guidance,
+  and trusted status context for language replies.
+- Fixed affection wraparound, consumable balls, broken streak gaps, duplicate
+  daily hooks, incorrect play counts, state forward compatibility, and ignored
+  character scaling.
+
 ## 1.1.0 - 2026-07-19
 
 - Renamed the public command to `momo-chan`; `vla-pet` remains a compatibility alias.

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from vla_pet.chat_dialog import PetChatDialog
 from vla_pet.control_center import CompanionControlCenter
+from vla_pet.growth import stage_definition, stage_progress
 from vla_pet.settings import CompanionSettings
 from vla_pet.state import PetRuntimeState
 from vla_pet.theme import apply_companion_theme
@@ -30,7 +31,7 @@ class CompanionPanel(QDialog):
     habitat_action_requested = Signal(str)
     settings_changed = Signal(object)
 
-    PAGE_NAMES = ("home", "chat", "play", "settings")
+    PAGE_NAMES = ("home", "chat", "status", "play", "settings")
 
     def __init__(
         self,
@@ -67,7 +68,13 @@ class CompanionPanel(QDialog):
         self.nav_group.setExclusive(True)
         self.nav_buttons: dict[str, QPushButton] = {}
         for index, (name, label) in enumerate(
-            (("home", "⌂  Home"), ("chat", "♡  Chat"), ("play", "★  Play"), ("settings", "⚙  Settings"))
+            (
+                ("home", "⌂  Home"),
+                ("chat", "♡  Chat"),
+                ("status", "✦  Status"),
+                ("play", "★  Play"),
+                ("settings", "⚙  Settings"),
+            )
         ):
             button = QPushButton(label)
             button.setObjectName("Nav")
@@ -86,6 +93,7 @@ class CompanionPanel(QDialog):
         self.pages = QStackedWidget()
         self.pages.addWidget(self._home_page())
         self.pages.addWidget(self._chat_page())
+        self.pages.addWidget(self._status_page())
         self.pages.addWidget(self._play_page())
         self.pages.addWidget(self._settings_page())
         shell.addWidget(self.pages, 1)
@@ -197,6 +205,45 @@ class CompanionPanel(QDialog):
         layout.addStretch(1)
         return page
 
+    def _status_page(self) -> QWidget:
+        page, layout = self._page_header(
+            "Momo's status",
+            "Every completed activity grows Momo. Time away never removes growth or stats.",
+        )
+        stage_card = QFrame()
+        stage_card.setObjectName("Card")
+        stage_layout = QVBoxLayout(stage_card)
+        self.stage_label = QLabel()
+        self.stage_label.setObjectName("SectionTitle")
+        self.stage_progress = QProgressBar()
+        self.next_stage_label = QLabel()
+        self.next_stage_label.setObjectName("Muted")
+        self.next_stage_label.setWordWrap(True)
+        stage_layout.addWidget(self.stage_label)
+        stage_layout.addWidget(self.stage_progress)
+        stage_layout.addWidget(self.next_stage_label)
+        layout.addWidget(stage_card)
+
+        stat_card = QFrame()
+        stat_card.setObjectName("Card")
+        stat_layout = QVBoxLayout(stat_card)
+        self.stat_bars: dict[str, QProgressBar] = {}
+        for name in ("health", "stamina", "intelligence"):
+            bar = QProgressBar()
+            bar.setRange(1, 99)
+            self.stat_bars[name] = bar
+            stat_layout.addWidget(bar)
+        layout.addWidget(stat_card)
+        guide = QLabel(
+            "Health grows from rest, snacks, and check-ins. Stamina grows through ball play "
+            "and games. Intelligence grows through chat, focus, and exploring the box."
+        )
+        guide.setObjectName("Muted")
+        guide.setWordWrap(True)
+        layout.addWidget(guide)
+        layout.addStretch(1)
+        return page
+
     def _settings_page(self) -> QWidget:
         page, layout = self._page_header("Make it yours", "The everyday choices are here; technical controls stay tucked under Advanced.")
         card = QFrame()
@@ -241,10 +288,14 @@ class CompanionPanel(QDialog):
         self.mood_label.setText(f"Momo feels {self.state.emotion.tag} ♡")
         self.activity_label.setText(self.state.active_intention.replace("_", " ").title())
         self.energy.setValue(round(self.state.needs.energy * 100))
-        affection = min(100, self.state.progression.affection_points % 100)
+        affection = min(100, self.state.progression.affection_points)
         self.affection.setValue(affection)
         progress = self.state.progression
-        self.level_label.setText(f"Level {progress.level}  •  {progress.xp} XP  •  {self.state.interaction_count} hellos")
+        stage = stage_definition(self.state.growth.stage)
+        self.level_label.setText(
+            f"{stage.display_name} Momo  •  Level {progress.level}  •  "
+            f"{progress.xp} XP  •  {self.state.interaction_count} hellos"
+        )
         self.progress_label.setText(f"Level {progress.level} companion • {len(progress.achievements)} achievements")
         inventory = "   ".join(f"{name.title()} × {count}" for name, count in sorted(progress.inventory.items()))
         self.inventory_label.setText(inventory or "The basket is empty for now.")
@@ -253,6 +304,32 @@ class CompanionPanel(QDialog):
             if self.settings.privacy_mode
             else "Habitat play uses internal object state only. Desktop capture still requires your explicit request."
         )
+        growth = stage_progress(progress.xp, self.state.growth.stage)
+        self.stage_label.setText(f"{stage.display_name} Momo  •  Level {progress.level}")
+        self.stage_progress.setRange(0, growth.required)
+        self.stage_progress.setValue(growth.earned)
+        if growth.next_stage is None:
+            self.stage_progress.setFormat("Teen form reached  •  %p%")
+            self.next_stage_label.setText(
+                "Teen is the current final form. Stats and friendship can still keep growing."
+            )
+        else:
+            next_name = stage_definition(growth.next_stage).display_name
+            remaining = growth.required - growth.earned
+            self.stage_progress.setFormat(f"Toward {next_name}  •  %v / %m growth XP")
+            self.next_stage_label.setText(
+                f"{remaining} more XP until {next_name} Momo. Growth comes only from positive activities."
+            )
+        stat_labels = {
+            "health": "HP",
+            "stamina": "STA",
+            "intelligence": "INT",
+        }
+        for name, bar in self.stat_bars.items():
+            value = int(getattr(self.state.stats, name))
+            experience = int(getattr(self.state.stats, f"{name}_xp"))
+            bar.setValue(value)
+            bar.setFormat(f"{stat_labels[name]}  {value} / 99  •  training {experience}")
 
     def _quick_action(self, action: str) -> None:
         if action == "chat":

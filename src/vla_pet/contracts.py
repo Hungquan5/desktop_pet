@@ -172,6 +172,7 @@ class ChatRequest:
     message: str
     history: tuple[tuple[str, str], ...] = ()
     memory_context: str = ""
+    companion_context: str = ""
 
     def validate(self) -> None:
         if not self.message.strip():
@@ -182,6 +183,8 @@ class ChatRequest:
             raise ValueError("Chat history is too long")
         if len(self.memory_context) > 1500:
             raise ValueError("Chat memory context is too long")
+        if len(self.companion_context) > 500:
+            raise ValueError("Companion status context is too long")
         for role, text in self.history:
             if role not in {"user", "pet"} or not text or len(text) > 500:
                 raise ValueError("Invalid chat history entry")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
 
@@ -51,7 +51,7 @@ class ProgressionState:
 
     def normalize(self) -> None:
         self.xp = max(0, int(self.xp))
-        self.level = max(1, int(self.level))
+        self.level = max(1, int(self.level), 1 + self.xp // 100)
         self.affection_points = max(0, int(self.affection_points))
         self.focus_minutes = max(0, int(self.focus_minutes))
         self.play_count = max(0, int(self.play_count))
@@ -65,8 +65,46 @@ class ProgressionState:
 
 
 @dataclass(slots=True)
+class StatState:
+    """Persistent RPG attributes; activities add XP and attributes never decay."""
+
+    health: int = 10
+    stamina: int = 8
+    intelligence: int = 6
+    health_xp: int = 0
+    stamina_xp: int = 0
+    intelligence_xp: int = 0
+
+    def normalize(self) -> None:
+        for name in ("health", "stamina", "intelligence"):
+            setattr(self, name, min(99, max(1, int(getattr(self, name)))))
+        for name in ("health_xp", "stamina_xp", "intelligence_xp"):
+            setattr(self, name, max(0, int(getattr(self, name))))
+
+
+@dataclass(slots=True)
+class GrowthState:
+    stage: str = "baby"
+    evolution_history: list[str] = field(default_factory=lambda: ["baby"])
+    last_evolution_xp: int = 0
+
+    def normalize(self) -> None:
+        from vla_pet.growth import GrowthStage
+
+        valid = {stage.value for stage in GrowthStage}
+        self.stage = self.stage if self.stage in valid else "baby"
+        history = [str(item) for item in self.evolution_history if str(item) in valid]
+        if "baby" not in history:
+            history.insert(0, "baby")
+        if self.stage not in history:
+            history.append(self.stage)
+        self.evolution_history = list(dict.fromkeys(history))
+        self.last_evolution_xp = max(0, int(self.last_evolution_xp))
+
+
+@dataclass(slots=True)
 class PetRuntimeState:
-    schema_version: int = 2
+    schema_version: int = 3
     x: float = 0.35
     y: float = 1.0
     current_animation: str = "idle"
@@ -79,6 +117,8 @@ class PetRuntimeState:
     needs: NeedState = field(default_factory=NeedState)
     emotion: EmotionState = field(default_factory=EmotionState)
     progression: ProgressionState = field(default_factory=ProgressionState)
+    stats: StatState = field(default_factory=StatState)
+    growth: GrowthState = field(default_factory=GrowthState)
     relationship_level: int = 0
     interaction_count: int = 0
     last_interaction_at: float = 0.0
@@ -90,23 +130,46 @@ class PetRuntimeState:
     @classmethod
     def from_snapshot(cls, data: dict[str, Any]) -> PetRuntimeState:
         version = int(data.get("schema_version", 0))
-        if version not in {1, 2}:
+        if version not in {1, 2, 3}:
             return cls()
-        needs = NeedState(**data.get("needs", {}))
-        emotion = EmotionState(**data.get("emotion", {}))
-        progression = ProgressionState(**data.get("progression", {}))
+        needs = cls._nested(NeedState, data.get("needs", {}))
+        emotion = cls._nested(EmotionState, data.get("emotion", {}))
+        progression = cls._nested(ProgressionState, data.get("progression", {}))
+        stats = cls._nested(StatState, data.get("stats", {}))
+        growth = cls._nested(GrowthState, data.get("growth", {}))
         state = cls(
             **{
                 key: value
                 for key, value in data.items()
-                if key not in {"needs", "emotion", "progression", "schema_version"}
+                if key not in {
+                    "needs",
+                    "emotion",
+                    "progression",
+                    "stats",
+                    "growth",
+                    "schema_version",
+                }
                 and key in cls.__dataclass_fields__
             },
             needs=needs,
             emotion=emotion,
             progression=progression,
+            stats=stats,
+            growth=growth,
         )
         needs.clamp()
         emotion.clamp()
         progression.normalize()
+        stats.normalize()
+        growth.normalize()
+        from vla_pet.growth import GrowthEngine
+
+        GrowthEngine().reconcile(state)
         return state
+
+    @staticmethod
+    def _nested(kind, value: Any):
+        if not isinstance(value, dict):
+            return kind()
+        names = {item.name for item in fields(kind)}
+        return kind(**{key: item for key, item in value.items() if key in names})

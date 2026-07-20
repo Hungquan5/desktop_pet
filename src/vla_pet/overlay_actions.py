@@ -6,7 +6,7 @@ from vla_pet.contracts import ActionKind, PetAction
 from vla_pet.world import PetWorld
 
 NATIVE_SPRITE_FACING = {
-    ActionKind.WALK: -1,
+    ActionKind.WALK: 1,
     ActionKind.THROW: 1,
 }
 

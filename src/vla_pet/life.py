@@ -95,7 +95,13 @@ class LifeEngine:
         state.emotion.tag = self._emotion_tag(state)
         return LifeDecision(intent, score, scores)
 
-    def interact(self, state: PetRuntimeState, *, positive: bool = True) -> None:
+    def interact(
+        self,
+        state: PetRuntimeState,
+        *,
+        positive: bool = True,
+        activity: str = "interaction",
+    ) -> None:
         state.interaction_count += 1
         state.relationship_level = min(10, state.interaction_count // 10)
         state.last_interaction_at = state.last_life_tick_at
@@ -105,7 +111,7 @@ class LifeEngine:
         state.emotion.affection = min(1.0, state.emotion.affection + 0.01)
         state.emotion.valence = min(1.0, state.emotion.valence + (0.12 if positive else 0.02))
         state.emotion.arousal = min(1.0, state.emotion.arousal + 0.08)
-        self.progression.interact(state)
+        self.progression.interact(state, activity=activity)
 
     @staticmethod
     def routine_action(intent: LifeIntent, step: int, facing: int) -> PetAction:

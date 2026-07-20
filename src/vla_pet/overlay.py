@@ -69,6 +69,7 @@ from vla_pet.contracts import (
 )
 from vla_pet.control_center import CompanionControlCenter
 from vla_pet.events import PlatformEvent, UserInteractionEvent
+from vla_pet.growth import companion_status_text, stage_definition
 from vla_pet.habitat import (
     HabitatController,
     HabitatObjectKind,
@@ -246,7 +247,11 @@ class DesktopPetOverlay(QWidget):
                 persona_prompt=self.settings.persona_prompt or self.character.persona.system_prompt,
             )
         self._base_worker_config = config.worker
-        self.animation = AnimationController(self.character, started_at=time.monotonic())
+        self.animation = AnimationController(
+            self.character,
+            started_at=time.monotonic(),
+            stage=self.runtime.state.growth.stage,
+        )
         self.sprites = self._load_sprites(self.character)
         self._sprite_cache: dict[tuple[str, int, bool], QPixmap] = {}
         self._bubble_cache: dict[str, QPixmap] = {}
@@ -297,6 +302,8 @@ class DesktopPetOverlay(QWidget):
         self._habitat_interaction_until = 0.0
         self._habitat_interaction_token = 0
         self._landing_until = 0.0
+        self._evolution_until = 0.0
+        self._visible_growth_stage = self.runtime.state.growth.stage
         self._sound_effect: object | None = None
         self._press_global_x = 0.0
         self._press_global_y = 0.0
@@ -396,6 +403,7 @@ class DesktopPetOverlay(QWidget):
         )
         self.companion_panel.settings_changed.connect(self._apply_settings)
         self.companion_panel.habitat_action_requested.connect(self._habitat_quick_action)
+        self._last_panel_refresh_at = 0.0
 
         self.update_checker = AsyncUpdateChecker(self.permissions, __version__)
         self.update_checker.finished.connect(self._on_update_checked)
@@ -460,6 +468,7 @@ class DesktopPetOverlay(QWidget):
             safe_mode=config.safe_mode,
             persist_conversation=config.persist_conversation,
             character_id=self.character.character_id,
+            growth_stage=self.runtime.state.growth.stage,
         )
         if character_result.fallback_error_code:
             self.logger.write(
@@ -507,6 +516,7 @@ class DesktopPetOverlay(QWidget):
         menu = QMenu()
         home = QAction("Momo's home", menu)
         chat = QAction("Chat", menu)
+        status = QAction("Growth and stats", menu)
         settings = QAction("Settings and privacy", menu)
         self._tray_privacy = QAction("Privacy mode", menu)
         self._tray_privacy.setCheckable(True)
@@ -514,10 +524,11 @@ class DesktopPetOverlay(QWidget):
         quit_action = QAction("Quit", menu)
         home.triggered.connect(lambda: self.companion_panel.show_page("home"))
         chat.triggered.connect(self._open_chat)
+        status.triggered.connect(lambda: self.companion_panel.show_page("status"))
         settings.triggered.connect(self._open_control_center)
         self._tray_privacy.toggled.connect(self._privacy_changed)
         quit_action.triggered.connect(QApplication.quit)
-        for action in (home, chat, settings, self._tray_privacy, quit_action):
+        for action in (home, chat, status, settings, self._tray_privacy, quit_action):
             menu.addAction(action)
         tray.setContextMenu(menu)
         tray.setToolTip(f"{self.character.display_name} desktop companion")
@@ -825,7 +836,7 @@ class DesktopPetOverlay(QWidget):
 
     def _load_sprites(self, pack: CharacterPack) -> dict[str, QPixmap]:
         sprites: dict[str, QPixmap] = {}
-        for spec in (*pack.animations.values(), *pack.expressive_animations.values()):
+        for spec in pack.animation_specs():
             for path in spec.frames:
                 pixmap = QPixmap(str(path))
                 if pixmap.isNull():
@@ -854,6 +865,10 @@ class DesktopPetOverlay(QWidget):
         )
         if life_decision is not None:
             self._life_decision = life_decision
+        self._update_growth_animation(now)
+        if self.companion_panel.isVisible() and now - self._last_panel_refresh_at >= 0.5:
+            self.companion_panel.refresh()
+            self._last_panel_refresh_at = now
         self.runtime.sync_position(
             self.world.x,
             self.world.y,
@@ -926,6 +941,27 @@ class DesktopPetOverlay(QWidget):
         if self.timer.interval() != target_interval:
             self.timer.setInterval(target_interval)
         self._repaint_moving_content()
+
+    def _update_growth_animation(self, now: float) -> None:
+        stage = self.runtime.state.growth.stage
+        if stage == self._visible_growth_stage:
+            return
+        self._visible_growth_stage = stage
+        self.animation.set_stage(stage, now)
+        self.animation.select_role("evolve", now, force=True)
+        self._evolution_until = now + 2.0
+        display_name = stage_definition(stage).display_name
+        self.bubble = f"I grew into {display_name} Momo! ✦"
+        self.bubble_until = now + 6.0
+        self.status = f"Evolution complete: {display_name}"
+        self.logger.write(
+            "growth_evolution",
+            stage=stage,
+            xp=self.runtime.state.progression.xp,
+        )
+        self.runtime.save()
+        self.companion_panel.refresh()
+        self._play_soft_sound()
 
     def _handle_responses(self, now: float) -> None:
         for response in self.ai.poll():
@@ -1032,6 +1068,9 @@ class DesktopPetOverlay(QWidget):
                     error=response.error,
                     text=self.bubble,
                 )
+                self.runtime.publish(
+                    UserInteractionEvent(name="screen_answer", data={"kind": "inspect"})
+                )
             elif response.kind == "notify":
                 self.bubble = str(response.payload)[:180]
                 self.bubble_until = now + 8.0
@@ -1088,6 +1127,9 @@ class DesktopPetOverlay(QWidget):
                     habitat_intent=(
                         result.habitat_intent.value if result.habitat_intent is not None else ""
                     ),
+                )
+                self.runtime.publish(
+                    UserInteractionEvent(name="chat_complete", data={"kind": "chat"})
                 )
             elif response.kind == "transcribe":
                 if not response.ok:
@@ -1430,7 +1472,15 @@ class DesktopPetOverlay(QWidget):
         )
 
     def _scaled_sprite(self, kind: ActionKind | str, height: int | None = None) -> QPixmap:
-        target_height = height or self.config.pet_size
+        base_height = height or self.config.pet_size
+        target_height = max(
+            48,
+            round(
+                base_height
+                * self.character.default_scale
+                * self.character.scale_for_stage(self.animation.stage)
+            ),
+        )
         now = time.monotonic()
         if isinstance(kind, ActionKind):
             frame_path = self.animation.frame(now, kind)
@@ -1589,6 +1639,8 @@ class DesktopPetOverlay(QWidget):
             pose = "fall"
         elif now < self._landing_until:
             pose = "landing"
+        elif now < self._evolution_until:
+            pose = "evolve"
         elif self._habitat_role:
             pose = self._habitat_role
         elif self.runtime.state.listening:
@@ -1965,7 +2017,12 @@ class DesktopPetOverlay(QWidget):
             return
         history = self.chat_dialog.history[:-1]
         memory_context = self.runtime.memory_context(message) if self.settings.memory_enabled else ""
-        request = ChatRequest(message=message, history=history, memory_context=memory_context)
+        request = ChatRequest(
+            message=message,
+            history=history,
+            memory_context=memory_context,
+            companion_context=companion_status_text(self.runtime.state),
+        )
         request.validate()
         self.ai.submit("chat", request)
         if self.runtime.persistence_enabled and self.permissions.permits(
@@ -2229,7 +2286,9 @@ class DesktopPetOverlay(QWidget):
                 painter.drawEllipse(rect)
             else:
                 painter.drawRoundedRect(rect, 4, 4)
-        idle_path = str(self.character.animation_for("idle").frames[0])
+        idle_path = str(
+            self.character.animation_for("idle", self.runtime.state.growth.stage).frames[0]
+        )
         pet = self.sprites[idle_path].scaledToHeight(72, Qt.TransformationMode.FastTransformation)
         pet_x = round(
             self.runtime.state.x * max(1, 256 - pet.width())

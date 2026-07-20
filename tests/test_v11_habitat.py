@@ -106,7 +106,7 @@ def test_schema_three_atomically_restores_habitat_without_velocity(tmp_path: Pat
 
 def test_character_schema_three_roles_and_old_pack_fallback() -> None:
     pack = CharacterPack.load(default_character_directory())
-    assert pack.schema_version == 3 and pack.pack_version == "2.0.0"
+    assert pack.schema_version == 4 and pack.pack_version == "3.1.0"
     assert len(pack.animation_for("walk").frames) == 2
     assert pack.animation_for("held").name == "held"
     controller = AnimationController(pack)
@@ -137,7 +137,7 @@ def test_smollm_direct_habitat_intents_and_mock_worker_share_contract() -> None:
     assert response.ok and response.payload in environment.candidates
 
 
-def test_unified_panel_has_four_friendly_pages_and_embedded_chat() -> None:
+def test_unified_panel_has_five_friendly_pages_and_embedded_chat() -> None:
     app = QApplication.instance() or QApplication([])
     assert app is not None
     settings = CompanionSettings()
@@ -145,9 +145,11 @@ def test_unified_panel_has_four_friendly_pages_and_embedded_chat() -> None:
     chat = PetChatDialog()
     advanced = CompanionControlCenter(settings, None, None, None, state, HabitatState())
     panel = CompanionPanel(settings, state, chat, advanced)
-    assert panel.pages.count() == 4
+    assert panel.pages.count() == 5
     panel.set_page("chat")
     assert panel.pages.currentIndex() == 1 and settings.last_panel_page == "chat"
+    panel.set_page("status")
+    assert panel.pages.currentIndex() == 2 and settings.last_panel_page == "status"
     panel.set_page("play")
     assert "Snack" in panel.inventory_label.text()
     panel.sound_enabled.setChecked(True)

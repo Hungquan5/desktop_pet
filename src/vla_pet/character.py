@@ -11,7 +11,7 @@ from vla_pet.errors import ErrorCategory, PetError
 
 
 def default_character_directory() -> Path:
-    source_assets = Path(__file__).resolve().parents[2] / "animations" / "momo_v2"
+    source_assets = Path(__file__).resolve().parents[2] / "animations" / "momo_v3"
     installed_assets = Path(sys.prefix) / "share" / "vla-pet" / "animations"
     return source_assets if source_assets.exists() else installed_assets
 
@@ -41,6 +41,36 @@ class VoiceSpec:
     pitch: float = 0.0
 
 
+FIXED_ANIMATION_ROLES = (
+    "idle",
+    "walk",
+    "jump",
+    "throw",
+    "happy",
+    "sad",
+    "fall",
+    "held",
+    "landing",
+    "eat",
+    "play",
+    "sleep",
+    "box",
+    "think",
+    "listen",
+    "talk",
+    "evolve",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class GrowthStageSpec:
+    name: str
+    display_name: str
+    minimum_xp: int
+    scale: float
+    animations: dict[str, AnimationSpec] = field(default_factory=dict)
+
+
 @dataclass(frozen=True, slots=True)
 class CharacterPack:
     schema_version: int
@@ -61,6 +91,7 @@ class CharacterPack:
     expressive_animations: dict[str, AnimationSpec] = field(default_factory=dict)
     ui_accent: str = "#B9362E"
     sound_attribution: tuple[tuple[str, str], ...] = ()
+    growth_stages: dict[str, GrowthStageSpec] = field(default_factory=dict)
 
     _ROLE_FALLBACKS = {
         "fall": ActionKind.JUMP,
@@ -73,16 +104,36 @@ class CharacterPack:
         "think": ActionKind.IDLE,
         "listen": ActionKind.IDLE,
         "talk": ActionKind.HAPPY,
+        "evolve": ActionKind.HAPPY,
     }
 
-    def animation_for(self, role: str | ActionKind) -> AnimationSpec:
+    def animation_for(
+        self,
+        role: str | ActionKind,
+        stage: str | None = None,
+    ) -> AnimationSpec:
         name = role.value if isinstance(role, ActionKind) else str(role).strip().lower()
+        stage_spec = self.growth_stages.get(str(stage or "").strip().lower())
+        if stage_spec is not None and name in stage_spec.animations:
+            return stage_spec.animations[name]
         if name in self.expressive_animations:
             return self.expressive_animations[name]
         try:
             return self.animations[ActionKind(name)]
         except ValueError:
             return self.animations[self._ROLE_FALLBACKS.get(name, ActionKind.IDLE)]
+
+    def scale_for_stage(self, stage: str) -> float:
+        spec = self.growth_stages.get(str(stage).strip().lower())
+        return spec.scale if spec is not None else 1.0
+
+    def animation_specs(self) -> tuple[AnimationSpec, ...]:
+        stage_specs = tuple(
+            spec
+            for stage in self.growth_stages.values()
+            for spec in stage.animations.values()
+        )
+        return (*self.animations.values(), *self.expressive_animations.values(), *stage_specs)
 
     @classmethod
     def load(cls, directory: Path) -> CharacterPack:
@@ -98,7 +149,7 @@ class CharacterPack:
             ) from exc
 
         schema_version = int(raw.get("schema_version", 0))
-        if schema_version not in {1, 2, 3}:
+        if schema_version not in {1, 2, 3, 4}:
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
                 "character.schema.unsupported",
@@ -177,6 +228,103 @@ class CharacterPack:
                     int(value.get("priority", 0)),
                 )
 
+        growth_specs: dict[str, GrowthStageSpec] = {}
+        growth_raw = raw.get("growth_stages", {})
+        if schema_version >= 4:
+            from vla_pet.growth import STAGE_DEFINITIONS
+
+            if not isinstance(growth_raw, dict):
+                raise PetError(
+                    ErrorCategory.CHARACTER_PACK,
+                    "character.growth.invalid",
+                    "growth_stages must be an object",
+                )
+            expected_stages = {definition.stage.value: definition for definition in STAGE_DEFINITIONS}
+            if set(growth_raw) != set(expected_stages):
+                raise PetError(
+                    ErrorCategory.CHARACTER_PACK,
+                    "character.growth.stages",
+                    "Schema v4 packs must provide baby, child, and teen stages",
+                )
+            for stage_name, definition in expected_stages.items():
+                stage_raw = growth_raw.get(stage_name)
+                if not isinstance(stage_raw, dict):
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.growth.invalid",
+                        f"Invalid growth stage: {stage_name}",
+                    )
+                stage_animation_raw = stage_raw.get("animations", {})
+                if not isinstance(stage_animation_raw, dict):
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.growth.animations",
+                        f"Growth stage {stage_name} has no animations object",
+                    )
+                stage_animations: dict[str, AnimationSpec] = {}
+                if stage_name == "baby" and not stage_animation_raw:
+                    merged_roles = {kind.value for kind in specs} | set(expressive_specs)
+                else:
+                    missing_roles = set(FIXED_ANIMATION_ROLES) - set(stage_animation_raw)
+                    if missing_roles:
+                        raise PetError(
+                            ErrorCategory.CHARACTER_PACK,
+                            "character.growth.roles",
+                            f"Growth stage {stage_name} is missing: {', '.join(sorted(missing_roles))}",
+                        )
+                    for role in FIXED_ANIMATION_ROLES:
+                        value = stage_animation_raw[role]
+                        if not isinstance(value, dict):
+                            raise PetError(
+                                ErrorCategory.CHARACTER_PACK,
+                                "character.growth.animation",
+                                f"Invalid {stage_name} animation: {role}",
+                            )
+                        fps = float(value.get("fps", 8.0))
+                        if not 0.1 <= fps <= 120.0:
+                            raise PetError(
+                                ErrorCategory.CHARACTER_PACK,
+                                "character.animation.fps",
+                                f"Invalid FPS for {stage_name}.{role}: {fps}",
+                            )
+                        stage_animations[role] = AnimationSpec(
+                            role,
+                            cls._resolve_frames(root, value.get("frames"), f"{stage_name}.{role}"),
+                            fps,
+                            bool(value.get("loop", True)),
+                            int(value.get("priority", 0)),
+                        )
+                    merged_roles = set(stage_animations)
+                missing_roles = set(FIXED_ANIMATION_ROLES) - merged_roles
+                if missing_roles:
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.growth.roles",
+                        f"Growth stage {stage_name} is missing: {', '.join(sorted(missing_roles))}",
+                    )
+                minimum_xp = int(stage_raw.get("minimum_xp", definition.minimum_xp))
+                if minimum_xp != definition.minimum_xp:
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.growth.threshold",
+                        f"Growth stage {stage_name} must start at {definition.minimum_xp} XP",
+                    )
+                scale = float(stage_raw.get("scale", definition.sprite_scale))
+                if not 0.5 <= scale <= 1.5:
+                    raise PetError(
+                        ErrorCategory.CHARACTER_PACK,
+                        "character.growth.scale",
+                        f"Invalid growth scale for {stage_name}: {scale}",
+                    )
+                growth_specs[stage_name] = GrowthStageSpec(
+                    stage_name,
+                    str(stage_raw.get("display_name", definition.display_name)).strip()[:80]
+                    or definition.display_name,
+                    minimum_xp,
+                    scale,
+                    stage_animations,
+                )
+
         persona_raw = raw.get("persona", {})
         voice_raw = raw.get("voice", {})
         hitbox_raw = raw.get("hitbox", {})
@@ -202,6 +350,13 @@ class CharacterPack:
                 "Persona, voice, hitbox, emotion, and attribution metadata must be objects",
             )
         license_name = str(raw.get("license", "UNSPECIFIED")).strip()
+        default_scale = float(raw.get("default_scale", 1.0))
+        if not 0.5 <= default_scale <= 2.0:
+            raise PetError(
+                ErrorCategory.CHARACTER_PACK,
+                "character.scale.invalid",
+                f"Invalid default_scale: {default_scale}",
+            )
         if schema_version >= 2 and not license_name:
             raise PetError(
                 ErrorCategory.CHARACTER_PACK,
@@ -222,7 +377,7 @@ class CharacterPack:
             display_name=str(raw.get("display_name", character_id)).strip() or character_id,
             root=root,
             canvas_size=(canvas[0], canvas[1]),
-            default_scale=float(raw.get("default_scale", 1.0)),
+            default_scale=default_scale,
             license=license_name,
             animations=specs,
             persona=PersonaSpec(
@@ -250,6 +405,7 @@ class CharacterPack:
             sound_attribution=tuple(
                 sorted((str(key), str(value)) for key, value in sound_raw.items())
             ),
+            growth_stages=growth_specs,
         )
 
     @staticmethod

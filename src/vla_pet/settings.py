@@ -61,7 +61,9 @@ class CompanionSettings:
         self.habitat_position = min(1.0, max(0.0, float(self.habitat_position)))
         self.sound_volume = min(1.0, max(0.0, float(self.sound_volume)))
         self.last_panel_page = (
-            self.last_panel_page if self.last_panel_page in {"home", "chat", "play", "settings"} else "home"
+            self.last_panel_page
+            if self.last_panel_page in {"home", "chat", "status", "play", "settings"}
+            else "home"
         )
 
     def as_dict(self) -> dict[str, Any]:

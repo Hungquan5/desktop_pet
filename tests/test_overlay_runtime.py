@@ -180,3 +180,27 @@ def test_overlay_habitat_is_masked_draggable_and_uses_only_synthetic_pixels(monk
     assert overlay._habitat_rect().size().width() == 44
     overlay.shutdown()
     overlay.close()
+
+
+def test_overlay_switches_stage_sprite_and_announces_evolution(monkeypatch) -> None:
+    overlay = build_overlay(monkeypatch)
+    saved: list[bool] = []
+    monkeypatch.setattr(overlay.runtime, "save", lambda: saved.append(True))
+    monkeypatch.setattr(overlay, "_play_soft_sound", lambda: None)
+    overlay.runtime.state.growth.stage = "baby"
+    overlay._visible_growth_stage = "baby"
+    overlay.animation.set_stage("baby", 1.0)
+    baby_height = overlay._scaled_sprite("idle").height()
+
+    overlay.runtime.state.growth.stage = "child"
+    overlay.runtime.state.progression.xp = 300
+    overlay._update_growth_animation(10.0)
+
+    assert overlay.animation.stage == "child"
+    assert overlay._visible_growth_stage == "child"
+    assert overlay._evolution_until == 12.0
+    assert "grew into Child" in overlay.bubble
+    assert overlay._scaled_sprite("idle").height() > baby_height
+    assert saved == [True]
+    overlay.shutdown()
+    overlay.close()

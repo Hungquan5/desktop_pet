@@ -1,0 +1,105 @@
+{
+  "schema_version": 4,
+  "version": "3.1.0",
+  "id": "momo",
+  "display_name": "Momo",
+  "canvas_size": [128, 128],
+  "default_scale": 1.0,
+  "license": "CC-BY-4.0",
+  "attribution": {
+    "author": "Momo Chan project with OpenAI image generation",
+    "source": "Original project-bound Momo v3 growth atlases generated 2026-07-20",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "ui": {"accent": "#B9362E"},
+  "sound_attribution": {
+    "momo_pop.wav": "Original synthesized 740 Hz soft interaction chime, Momo Chan project, CC0-1.0"
+  },
+  "persona": {
+    "name": "Momo",
+    "system_prompt": "You are Momo, a warm, playful, observant desktop companion who grows from baby to child to teen through positive shared activities. Answer directly in one or two concise sentences, never repeat phrases, use only status facts supplied by the runtime, and only describe an action or observation supplied by the runtime.",
+    "greeting": "Hi! I'm Momo. We can grow a little every day.",
+    "traits": ["warm", "playful", "curious", "concise", "respectful"]
+  },
+  "voice": {"provider": "qt-speechd", "voice_id": "", "rate": 0.05, "pitch": 0.1},
+  "hitbox": {"padding": 64, "alpha_threshold": 8},
+  "emotion_map": {
+    "content": "idle", "happy": "happy", "excited": "jump",
+    "sad": "sad", "sleepy": "sleep", "curious": "think"
+  },
+  "animations": {
+    "idle": {"frames": ["frames/baby/frame_00.png", "frames/baby/frame_01.png"], "fps": 2, "loop": true, "priority": 0},
+    "walk": {"frames": ["frames/baby/frame_02.png", "frames/baby/frame_03.png"], "fps": 7, "loop": true, "priority": 1},
+    "jump": {"frames": ["frames/baby/frame_04.png"], "fps": 8, "loop": true, "priority": 3},
+    "throw": {"frames": ["frames/baby/frame_10.png", "frames/baby/frame_11.png"], "fps": 6, "loop": false, "priority": 3},
+    "happy": {"frames": ["frames/baby/frame_09.png", "frames/baby/frame_15.png"], "fps": 5, "loop": false, "priority": 2},
+    "sad": {"frames": ["frames/baby/frame_05.png"], "fps": 3, "loop": false, "priority": 2},
+    "fall": {"frames": ["frames/baby/frame_05.png"], "fps": 8, "loop": true, "priority": 3},
+    "held": {"frames": ["frames/baby/frame_06.png"], "fps": 4, "loop": true, "priority": 4},
+    "landing": {"frames": ["frames/baby/frame_07.png"], "fps": 6, "loop": false, "priority": 3},
+    "eat": {"frames": ["frames/baby/frame_08.png", "frames/baby/frame_09.png"], "fps": 5, "loop": false, "priority": 3},
+    "play": {"frames": ["frames/baby/frame_10.png", "frames/baby/frame_11.png"], "fps": 7, "loop": true, "priority": 2},
+    "sleep": {"frames": ["frames/baby/frame_12.png"], "fps": 2, "loop": true, "priority": 2},
+    "box": {"frames": ["frames/baby/frame_13.png"], "fps": 3, "loop": true, "priority": 2},
+    "think": {"frames": ["frames/baby/frame_14.png"], "fps": 3, "loop": true, "priority": 1},
+    "listen": {"frames": ["frames/baby/frame_00.png", "frames/baby/frame_14.png"], "fps": 3, "loop": true, "priority": 2},
+    "talk": {"frames": ["frames/baby/frame_15.png", "frames/baby/frame_09.png"], "fps": 5, "loop": true, "priority": 2},
+    "evolve": {"frames": ["frames/evolution/frame_00.png", "frames/evolution/frame_01.png", "frames/evolution/frame_02.png", "frames/evolution/frame_03.png"], "fps": 3, "loop": false, "priority": 5}
+  },
+  "growth_stages": {
+    "baby": {
+      "display_name": "Baby Momo",
+      "minimum_xp": 0,
+      "scale": 0.90,
+      "animations": {}
+    },
+    "child": {
+      "display_name": "Child Momo",
+      "minimum_xp": 300,
+      "scale": 1.00,
+      "animations": {
+        "idle": {"frames": ["frames/child/frame_00.png", "frames/child/frame_01.png"], "fps": 2, "loop": true, "priority": 0},
+        "walk": {"frames": ["frames/child/frame_02.png", "frames/child/frame_03.png"], "fps": 7, "loop": true, "priority": 1},
+        "jump": {"frames": ["frames/child/frame_04.png"], "fps": 8, "loop": true, "priority": 3},
+        "throw": {"frames": ["frames/child/frame_10.png", "frames/child/frame_11.png"], "fps": 6, "loop": false, "priority": 3},
+        "happy": {"frames": ["frames/child/frame_09.png", "frames/child/frame_15.png"], "fps": 5, "loop": false, "priority": 2},
+        "sad": {"frames": ["frames/child/frame_05.png"], "fps": 3, "loop": false, "priority": 2},
+        "fall": {"frames": ["frames/child/frame_05.png"], "fps": 8, "loop": true, "priority": 3},
+        "held": {"frames": ["frames/child/frame_06.png"], "fps": 4, "loop": true, "priority": 4},
+        "landing": {"frames": ["frames/child/frame_07.png"], "fps": 6, "loop": false, "priority": 3},
+        "eat": {"frames": ["frames/child/frame_08.png", "frames/child/frame_09.png"], "fps": 5, "loop": false, "priority": 3},
+        "play": {"frames": ["frames/child/frame_10.png", "frames/child/frame_11.png"], "fps": 7, "loop": true, "priority": 2},
+        "sleep": {"frames": ["frames/child/frame_12.png"], "fps": 2, "loop": true, "priority": 2},
+        "box": {"frames": ["frames/child/frame_13.png"], "fps": 3, "loop": true, "priority": 2},
+        "think": {"frames": ["frames/child/frame_14.png"], "fps": 3, "loop": true, "priority": 1},
+        "listen": {"frames": ["frames/child/frame_00.png", "frames/child/frame_14.png"], "fps": 3, "loop": true, "priority": 2},
+        "talk": {"frames": ["frames/child/frame_15.png", "frames/child/frame_09.png"], "fps": 5, "loop": true, "priority": 2},
+        "evolve": {"frames": ["frames/evolution/frame_00.png", "frames/evolution/frame_01.png"], "fps": 3, "loop": false, "priority": 5}
+      }
+    },
+    "teen": {
+      "display_name": "Teen Momo",
+      "minimum_xp": 1000,
+      "scale": 1.18,
+      "animations": {
+        "idle": {"frames": ["frames/teen/frame_00.png", "frames/teen/frame_01.png"], "fps": 2, "loop": true, "priority": 0},
+        "walk": {"frames": ["frames/teen/frame_02.png", "frames/teen/frame_03.png"], "fps": 7, "loop": true, "priority": 1},
+        "jump": {"frames": ["frames/teen/frame_04.png"], "fps": 8, "loop": true, "priority": 3},
+        "throw": {"frames": ["frames/teen/frame_10.png", "frames/teen/frame_11.png"], "fps": 6, "loop": false, "priority": 3},
+        "happy": {"frames": ["frames/teen/frame_09.png", "frames/teen/frame_15.png"], "fps": 5, "loop": false, "priority": 2},
+        "sad": {"frames": ["frames/teen/frame_05.png"], "fps": 3, "loop": false, "priority": 2},
+        "fall": {"frames": ["frames/teen/frame_05.png"], "fps": 8, "loop": true, "priority": 3},
+        "held": {"frames": ["frames/teen/frame_06.png"], "fps": 4, "loop": true, "priority": 4},
+        "landing": {"frames": ["frames/teen/frame_07.png"], "fps": 6, "loop": false, "priority": 3},
+        "eat": {"frames": ["frames/teen/frame_08.png", "frames/teen/frame_09.png"], "fps": 5, "loop": false, "priority": 3},
+        "play": {"frames": ["frames/teen/frame_10.png", "frames/teen/frame_11.png"], "fps": 7, "loop": true, "priority": 2},
+        "sleep": {"frames": ["frames/teen/frame_12.png"], "fps": 2, "loop": true, "priority": 2},
+        "box": {"frames": ["frames/teen/frame_13.png"], "fps": 3, "loop": true, "priority": 2},
+        "think": {"frames": ["frames/teen/frame_14.png"], "fps": 3, "loop": true, "priority": 1},
+        "listen": {"frames": ["frames/teen/frame_00.png", "frames/teen/frame_14.png"], "fps": 3, "loop": true, "priority": 2},
+        "talk": {"frames": ["frames/teen/frame_15.png", "frames/teen/frame_09.png"], "fps": 5, "loop": true, "priority": 2},
+        "evolve": {"frames": ["frames/evolution/frame_01.png", "frames/evolution/frame_02.png", "frames/evolution/frame_03.png"], "fps": 3, "loop": false, "priority": 5}
+      }
+    }
+  }
+}

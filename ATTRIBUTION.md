@@ -1,11 +1,15 @@
 # Attribution and asset review
 
-The v1.1 release character is the original Momo v2 pixel-chibi atlas under
-`animations/momo_v2/`. Its source prompt, generation mode, deterministic
+The v1.2 release character is the original Momo v3 growth pack under
+`animations/momo_v3/`. Its source prompts, generation mode, deterministic
 post-processing, frame list, and license are recorded in
-`animations/momo_v2/PROVENANCE.md`. The release wheel includes this pack under
+`animations/momo_v3/PROVENANCE.md`. The release wheel includes this pack under
 CC BY 4.0 and does not include the six unresolved prototype PNG files retained
 at the root of `animations/` for source-history review.
+
+Momo v3 preserves the original Momo v2 identity while adding project-bound
+Child, Teen, and evolution atlases. The v2 source remains in repository history
+and is not included in the v1.2 runtime artifact.
 
 `assets/sounds/momo_pop.wav` is an original synthesized soft interaction tone
 created for this repository and dedicated to the public domain under CC0-1.0.

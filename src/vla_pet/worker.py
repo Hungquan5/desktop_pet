@@ -49,8 +49,18 @@ class MockRequestHandler:
             from vla_pet.policy import infer_habitat_intent
 
             habitat_intent = infer_habitat_intent(request.payload.message)
+            status_question = any(
+                token in request.payload.message.lower()
+                for token in ("status", "stats", "health", "stamina", "intelligence", "form")
+            )
             payload: object = ChatResult(
-                "Okay—let's do that!" if habitat_intent else "Hi! I'm happy to chat with you.",
+                (
+                    request.payload.companion_context
+                    if status_question and request.payload.companion_context
+                    else "Okay—let's do that!"
+                    if habitat_intent
+                    else "Hi! I'm happy to chat with you."
+                ),
                 habitat_intent=habitat_intent,
             )
         elif request.kind == "transcribe":

@@ -87,7 +87,12 @@ class RuntimeController:
 
     def _on_user_interaction(self, event: UserInteractionEvent) -> None:
         previous_level = self.state.relationship_level
-        self.life.interact(self.state, positive=event.name != "negative")
+        activity = str(event.data.get("kind", event.name))
+        self.life.interact(
+            self.state,
+            positive=event.name != "negative",
+            activity=activity,
+        )
         if (
             self.memory_enabled
             and self.memory is not None

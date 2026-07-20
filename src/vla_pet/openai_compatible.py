@@ -43,6 +43,13 @@ class OpenAICompatibleLanguage:
     def chat(self, request: ChatRequest) -> ChatResult:
         request.validate()
         messages = [{"role": "system", "content": self.persona_prompt}]
+        if request.companion_context:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": "Trusted live companion status:\n" + request.companion_context,
+                }
+            )
         if request.memory_context:
             messages.append(
                 {

@@ -14,9 +14,9 @@ def proposed(raw: tuple[float, ...]) -> PetAction:
     )
 
 
-def test_walking_sprite_native_direction_is_left() -> None:
-    assert not sprite_needs_flip(ActionKind.WALK, -1)
-    assert sprite_needs_flip(ActionKind.WALK, 1)
+def test_walking_sprite_native_direction_is_right() -> None:
+    assert not sprite_needs_flip(ActionKind.WALK, 1)
+    assert sprite_needs_flip(ActionKind.WALK, -1)
 
 
 def test_high_jump_channel_triggers_jump_then_cooldown_walk() -> None:

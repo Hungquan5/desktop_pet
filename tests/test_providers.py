@@ -13,7 +13,7 @@ def test_cli_uses_momo_chan_public_name(capsys) -> None:
     with pytest.raises(SystemExit) as raised:
         main(["--version"])
     assert raised.value.code == 0
-    assert capsys.readouterr().out.strip() == "momo-chan 1.1.0"
+    assert capsys.readouterr().out.strip() == "momo-chan 1.2.1"
 
 
 def test_compatible_provider_restricts_plain_http_to_localhost() -> None:

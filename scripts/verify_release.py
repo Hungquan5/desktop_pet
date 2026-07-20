@@ -19,6 +19,7 @@ REQUIRED_SUFFIXES = {
     "vla_pet/permissions.py",
     "vla_pet/persistence.py",
     "vla_pet/habitat.py",
+    "vla_pet/growth.py",
     "vla_pet/companion_panel.py",
     "vla_pet/platform_adapters.py",
     "vla_pet/memory.py",
@@ -31,8 +32,10 @@ REQUIRED_SUFFIXES = {
     "vla_pet/updater.py",
     "share/vla-pet/animations/character.json",
     "share/vla-pet/animations/PROVENANCE.md",
-    "share/vla-pet/animations/frames/frame_00.png",
-    "share/vla-pet/animations/frames/frame_15.png",
+    "share/vla-pet/animations/frames/baby/frame_00.png",
+    "share/vla-pet/animations/frames/child/frame_15.png",
+    "share/vla-pet/animations/frames/teen/frame_15.png",
+    "share/vla-pet/animations/frames/evolution/frame_03.png",
     "share/vla-pet/sounds/momo_pop.wav",
     "share/vla-pet/characters/orbit/character.json",
     "share/vla-pet/plugins/focus-helper/plugin.json",
@@ -41,6 +44,9 @@ REQUIRED_SUFFIXES = {
     "share/doc/vla-pet/plugin-spec-v1.md",
     "share/doc/vla-pet/character-pack-spec-v2.md",
     "share/doc/vla-pet/character-pack-spec-v3.md",
+    "share/doc/vla-pet/character-pack-spec-v4.md",
+    "share/doc/vla-pet/feature-audit-v1.2.md",
+    "share/doc/vla-pet/release-evidence-v1.2.md",
 }
 
 
@@ -96,7 +102,7 @@ def main() -> int:
             text=True,
             env=environment,
         )
-        if "1.1.0" not in result.stdout:
+        if "1.2.1" not in result.stdout:
             raise SystemExit(f"Unexpected installed version: {result.stdout.strip()}")
 
     print(f"Verified release artifact: {artifact.name}")

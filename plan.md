@@ -1,23 +1,23 @@
 # End-to-end development plan for `desktop_pet`
 
-> Status: v1.1 implementation and acceptance in progress, revised 2026-07-19  
+> Status: v1.2 growth-system implementation and acceptance complete, revised 2026-07-20
 > Current implementation package: `vla_pet`  
-> Immediate release target: `v1.1.0` cozy desktop habitat and companion UI  
+> Immediate release target: `v1.2.1` character-art and directional-rendering patch
 > Delivery path: the staged `v0.3`–`v1.0` slices in sections 0.13 and 7
 
 The measured v1.0 acceptance records are in
 [`docs/release-evidence-v0.2.md`](docs/release-evidence-v0.2.md) and
 [`docs/release-evidence-v1.0.md`](docs/release-evidence-v1.0.md). Public binary
-distribution of v1.1 uses the provenance-documented Momo v2 pack; unresolved
+distribution of v1.2 uses the provenance-documented Momo v3 growth pack; unresolved
 prototype sprites remain excluded from its artifact.
 
-**Refined execution goal:** ship `v1.1.0` as an installed, local-first living
+**Refined execution goal:** ship `v1.2.1` as an installed, local-first living
 desktop companion with a cozy tactile habitat on the Linux/GNOME Wayland
 reference host. One lazy worker
 coordinates SmolLM, SmolVLM, and Whisper while the renderer, deterministic life
 loop, memory, permissions, tools, awareness, progression, plugins, recovery,
 updates, and deployment remain independently testable and privacy bounded. The
-release is accepted only through the v1.0 baseline and section 0.14.
+release is accepted only through the v1.0 baseline and section 0.15.
 
 ## 0. Delivery contract
 
@@ -338,8 +338,33 @@ Implementation order:
 - [x] Implement pure habitat state, object physics, completion, and rewards.
 - [x] Integrate habitat rendering, masks, input, quick actions, and model routing.
 - [x] Build the unified companion panel and nested advanced controls.
-- [ ] Pass complete tests, package verification, performance checks, and live
+- [x] Pass complete tests, package verification, performance checks, and live
   GNOME Wayland upgrade/rollback acceptance.
+
+### 0.15 v1.2 growth and character execution contract
+
+v1.2 retains every v1.1 privacy, rendering, persistence, and single-worker
+invariant while making long-term companionship visible and game-like.
+
+| Area | Required result | Acceptance gate |
+|---|---|---|
+| Evolution | Positive-only Baby → Child at 300 XP → Teen at 1000 XP; no regression or offline penalty. | Migration, exact threshold, multi-stage crossing, restart, and no-regression tests. |
+| RPG status | Persistent HP, STA, and INT capped at 99 with activity-specific training XP. | Specialized activity, cap, normalization, and persistence tests. |
+| Character system | Momo v3 schema-v4 pack with the same fixed 17 roles for Baby, Child, and Teen. | Every role/frame validates before render; malformed packs fall back safely. |
+| Evolution feedback | Stage-specific size, bounded evolution animation, message, sound policy, immediate save, and live UI refresh. | Offscreen stage-switch/render tests plus live GNOME visual check. |
+| Status UI | Dedicated Status page showing form, next threshold, HP/STA/INT, and training guidance. | Qt navigation, full-affection, progress, and live-refresh tests. |
+| Language | SmolLM receives a short trusted runtime status string and no additional process/model. | Mock/provider contract proves truthful status answers and the one-worker invariant. |
+| Compatibility | Schema-v1–v3 character packs remain single-form; state schema 1–2 migrates to state schema 3. | Old pack and old snapshot regression tests. |
+
+Implementation order:
+
+- [x] Audit the v1.1 feature inventory and reproduce progression/UI bugs.
+- [x] Freeze growth thresholds, stat mechanics, and the 17-role animation set.
+- [x] Generate, post-process, validate, and document Momo v3 growth assets.
+- [x] Implement persistent evolution/stats and integrate completed activities.
+- [x] Add status UI, stage rendering, evolution feedback, and language context.
+- [x] Pass full regression, package, performance, installed upgrade/rollback,
+  and live GNOME Wayland acceptance; record final evidence.
 
 ---
 

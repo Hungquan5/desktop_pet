@@ -12,12 +12,21 @@ class AnimationController:
     current: ActionKind = ActionKind.IDLE
     started_at: float = 0.0
     current_role: str = "idle"
+    stage: str = "baby"
+
+    def set_stage(self, stage: str, now: float) -> bool:
+        name = str(stage).strip().lower() or "baby"
+        if name == self.stage:
+            return False
+        self.stage = name if name in {"baby", "child", "teen"} else "baby"
+        self.started_at = now
+        return True
 
     def select(self, kind: ActionKind, now: float, *, force: bool = False) -> bool:
         if kind is self.current and self.current_role == kind.value:
             return True
-        current_spec = self.pack.animation_for(self.current_role)
-        next_spec = self.pack.animation_for(kind)
+        current_spec = self.pack.animation_for(self.current_role, self.stage)
+        next_spec = self.pack.animation_for(kind, self.stage)
         if not force and next_spec.priority < current_spec.priority and not self.finished(now):
             return False
         self.current = kind
@@ -29,8 +38,8 @@ class AnimationController:
         name = str(role).strip().lower() or "idle"
         if name == self.current_role:
             return True
-        current_spec = self.pack.animation_for(self.current_role)
-        next_spec = self.pack.animation_for(name)
+        current_spec = self.pack.animation_for(self.current_role, self.stage)
+        next_spec = self.pack.animation_for(name, self.stage)
         if not force and next_spec.priority < current_spec.priority and not self.finished(now):
             return False
         self.current_role = name
@@ -44,17 +53,17 @@ class AnimationController:
     def frame(self, now: float, kind: ActionKind | None = None) -> str:
         if kind is not None and kind is not self.current:
             self.select(kind, now, force=kind is ActionKind.IDLE)
-        spec = self.pack.animation_for(self.current_role)
+        spec = self.pack.animation_for(self.current_role, self.stage)
         return str(spec.frames[self._frame_index(spec, now)])
 
     def frame_role(self, now: float, role: str | None = None) -> str:
         if role is not None and role != self.current_role:
             self.select_role(role, now, force=role == "idle")
-        spec = self.pack.animation_for(self.current_role)
+        spec = self.pack.animation_for(self.current_role, self.stage)
         return str(spec.frames[self._frame_index(spec, now)])
 
     def finished(self, now: float) -> bool:
-        spec = self.pack.animation_for(self.current_role)
+        spec = self.pack.animation_for(self.current_role, self.stage)
         return not spec.loop and max(0.0, now - self.started_at) * spec.fps >= len(spec.frames)
 
     def _frame_index(self, spec: AnimationSpec, now: float) -> int:

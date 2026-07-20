@@ -34,7 +34,7 @@ def test_v1_state_migrates_v0_snapshot_and_progression_is_positive() -> None:
             "emotion": {"valence": 0.2, "arousal": 0.1, "affection": 0.4, "tag": "content"},
         }
     )
-    assert state.schema_version == 2 and state.x == 0.7
+    assert state.schema_version == 3 and state.x == 0.7
     progression = ProgressionEngine()
     for _ in range(20):
         progression.interact(state)

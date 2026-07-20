@@ -197,7 +197,7 @@ def main() -> int:
         encoding="utf-8",
     )
     compatibility_executable.chmod(0o755)
-    icon = environment_root / "share" / "icons" / "hicolor" / "128x128" / "apps" / "happy.png"
+    icon = environment_root / "share" / "icons" / "hicolor" / "128x128" / "apps" / "frame_09.png"
     desktop_path.parent.mkdir(parents=True, exist_ok=True)
     desktop = DESKTOP_ENTRY.format(
         executable=executable,

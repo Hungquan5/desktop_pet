@@ -1,4 +1,4 @@
-"""Run the deterministic end-to-end v1.0 verification pipeline."""
+"""Run the deterministic end-to-end v1.2 verification pipeline."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def main() -> int:
     run("build", [python, "-m", "build", "--no-isolation"])
     run(
         "wheel contents and isolated import",
-        [python, "scripts/verify_release.py", "--artifact", "dist/*-1.1.0-*.whl"],
+        [python, "scripts/verify_release.py", "--artifact", "dist/*-1.2.1-*.whl"],
     )
     run("10k memory retrieval budget", [python, "scripts/measure_memory.py"])
     run("cross-platform packaging contracts", [python, "scripts/verify_packaging.py"])
@@ -128,9 +128,9 @@ def main() -> int:
             [python, "-m", "vla_pet", "--restore-data", str(backup)],
             environment=environment,
         )
-        wheels = tuple((ROOT / "dist").glob("*-1.1.0-*.whl"))
+        wheels = tuple((ROOT / "dist").glob("*-1.2.1-*.whl"))
         if len(wheels) != 1:
-            raise SystemExit(f"Expected one v1.1.0 wheel, found {len(wheels)}")
+            raise SystemExit(f"Expected one v1.2.1 wheel, found {len(wheels)}")
         wheel = wheels[0]
         run(
             "temporary-prefix install",
@@ -155,6 +155,13 @@ def main() -> int:
             [str(prefix / "bin" / "vla-pet"), "--version"],
             environment=environment,
         )
+        desktop = prefix / "share" / "applications" / "vla-pet.desktop"
+        icon_line = next(
+            (line for line in desktop.read_text(encoding="utf-8").splitlines() if line.startswith("Icon=")),
+            "",
+        )
+        if not icon_line or not Path(icon_line.removeprefix("Icon=")).is_file():
+            raise SystemExit("Installed desktop launcher references a missing icon")
         run(
             "atomic upgrade",
             [
@@ -241,7 +248,7 @@ def main() -> int:
         )
         run("cached local Whisper smoke", [python, "scripts/smoke_voice.py"], environment=environment)
 
-    print("[verify] all selected v1.1 gates passed", flush=True)
+    print("[verify] all selected v1.2 gates passed", flush=True)
     return 0
 
 

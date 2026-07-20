@@ -557,6 +557,17 @@ class SmolLMPetLanguage:
                 "content": self._persona_prompt,
             }
         ]
+        if request.companion_context.strip():
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "This is trusted live companion status supplied by the runtime. "
+                        "Use it when the user asks about you:\n"
+                        f"{request.companion_context.strip()}"
+                    ),
+                }
+            )
         if request.memory_context.strip():
             messages.append(
                 {
